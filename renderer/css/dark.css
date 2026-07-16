@@ -15,8 +15,8 @@
     --text-muted: #808080;
     --divider-color: #333333;
     --border-color: rgba(255, 255, 255, 0.31);
-    --card-bg: rgba(26, 26, 26, 0.115);
-    --input-bg: rgba(42, 42, 42, 0.115);
+    --card-bg: rgba(26, 26, 26, 0.65);
+    --input-bg: rgba(42, 42, 42, 0.5);
     --dialog-bg: rgba(26, 26, 26, 0.95);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
