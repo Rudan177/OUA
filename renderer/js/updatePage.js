@@ -35,10 +35,30 @@
       AnZhuangLuJingXianShi.textContent = '未设置';
       AnZhuangLuJingXianShi.title = '';
     }
+    // 异步更新按钮文字
+    GengXinAnNiuZhuangTaiDangQianLuJing();
   }
 
   function ShiFouLocal() {
     return DangQianFenZhi === 'local';
+  }
+
+  /**
+   * 根据当前目录结构更新主按钮文字
+   * 空目录/不完整 → "安装"，有效目录 → "检查更新"
+   */
+  async function GengXinAnNiuZhuangTaiDangQianLuJing() {
+    if (ShiFouLocal() || !AnZhuangLuJing) return;
+    try {
+      const jieGou = await window.electronAPI.folder.checkStructure(AnZhuangLuJing);
+      if (jieGou === 'empty' || jieGou === 'incomplete') {
+        AnNiuJianChaGengXin.textContent = '安装';
+      } else {
+        AnNiuJianChaGengXin.textContent = '检查更新';
+      }
+    } catch {
+      // 忽略错误，保持当前文字
+    }
   }
 
   /**
@@ -700,10 +720,28 @@
   }
 
   /**
-   * 处理点击主按钮（检查更新/导入）
+   * 处理点击主按钮（检查更新/安装/导入）
    */
   async function ChuLiAnNiuZhu() {
     if (!ShiFouLocal()) {
+      // 远程模式：检查目录状态
+      if (AnZhuangLuJing) {
+        try {
+          const jieGou = await window.electronAPI.folder.checkStructure(AnZhuangLuJing);
+          if (jieGou === 'empty') {
+            // 空目录 → 安装（首次安装默认用 LTS，安装完成后可切换分支）
+            KaiShiShouCiAnZhuang(AnZhuangLuJing);
+            return;
+          }
+          if (jieGou === 'incomplete') {
+            // 不完整目录 → 覆盖安装（使用当前分支）
+            KaiShiQiangZhiFuGai(AnZhuangLuJing);
+            return;
+          }
+        } catch {
+          // 检查失败，继续执行原有的更新检查
+        }
+      }
       await JianChaGengXin();
       return;
     }
