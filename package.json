@@ -1,6 +1,6 @@
 {
   "name": "oua",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "OOOInterface易升",
   "main": "main/main.js",
   "scripts": {

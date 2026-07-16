@@ -1,6 +1,5 @@
 /**
- * 主样式文件 — 玻璃拟态（Glassmorphism）设计
- * 参照 OOOInterface dynamic-blur.css 风格优化
+ * 主样式文件
  */
 @font-face {
   font-family: 'HarmonyOS';
@@ -52,6 +51,8 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   transition: background-color 0.3s, color 0.3s;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .PingMu {
@@ -73,9 +74,6 @@ body {
   pointer-events: auto;
 }
 
-/* =============================================
-   按钮（AnNiu）— 玻璃拟态
-   ============================================= */
 .AnNiu {
   display: inline-flex;
   align-items: center;
@@ -87,52 +85,39 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: inherit;
-  position: relative;
 }
 
 .AnNiu-Zhu {
   background: var(--primary-color);
   color: #ffffff;
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .AnNiu-Zhu:hover {
   background: var(--primary-dark);
-  box-shadow: 0 2px 8px rgba(0, 174, 0, 0.3);
+  box-shadow: var(--shadow-sm);
 }
 
 .AnNiu-Fu {
   background: var(--card-bg);
   color: var(--text-primary);
-  backdrop-filter: blur(80px) saturate(1.5);
-  -webkit-backdrop-filter: blur(80px) saturate(1.5);
-  border: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
 }
 
 .AnNiu-Fu:hover {
-  background: var(--input-bg);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-  .AnNiu-Fu:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
+  background: var(--border-color);
 }
 
 .AnNiu-Wei-Xian {
-  background: var(--danger-color);
+  background: #dc3545;
   color: #ffffff;
 }
 
 .AnNiu-WeiXian:hover {
-  background: var(--danger-dark);
-  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
-  transform: translateY(-1px);
+  background: #c82333;
+  box-shadow: var(--shadow-sm);
 }
 
 /* 导入模式按钮 */
@@ -140,45 +125,40 @@ body {
   background: var(--primary-color);
   color: #ffffff;
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   position: relative;
   overflow: hidden;
 }
 
 .AnNiu-DaoRu:hover {
   background: var(--primary-dark);
-  box-shadow: 0 2px 8px rgba(0, 174, 0, 0.3);
-  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .AnNiu-DaoRu .AnNiu-TuBiao {
   width: 16px;
   height: 16px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.2s ease;
 }
 
 .AnNiu-DaoRu:hover .AnNiu-TuBiao {
   transform: translateY(2px);
 }
 
-/* =============================================
-   拖放遮罩层 — 玻璃拟态
-   ============================================= */
+/* 拖放遮罩层 */
 #TuoZhua-ZhaoCeng {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(80px) saturate(1.5);
-  -webkit-backdrop-filter: blur(80px) saturate(1.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
   opacity: 0;
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.25s ease;
 }
 
 #TuoZhua-ZhaoCeng.TuoZhua-HuoYue {
@@ -231,9 +211,7 @@ body {
   display: none !important;
 }
 
-/* =============================================
-   主屏幕布局
-   ============================================= */
+/* 主屏幕布局 */
 .YingYong-RongQi {
   width: 100%;
   height: 100%;
@@ -261,9 +239,6 @@ body {
   margin-right: 20px;
 }
 
-/* =============================================
-   卡片（KaPian）— 玻璃拟态核心
-   ============================================= */
 .KaPian {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
@@ -272,15 +247,7 @@ body {
   animation: kuangjia 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   display: flex;
   flex-direction: column;
-  backdrop-filter: blur(80px) saturate(1.5);
-  -webkit-backdrop-filter: blur(80px) saturate(1.5);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-@media (prefers-color-scheme: dark) {
-  .KaPian {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  }
+  backdrop-filter: blur(10px);
 }
 
 .Aa-MianBan {
@@ -325,9 +292,7 @@ body {
   overflow-y: auto;
 }
 
-/* =============================================
-   版本信息
-   ============================================= */
+/* 版本信息 */
 .BanBen-XinXi {
   margin-bottom: 20px;
 }
@@ -353,6 +318,8 @@ body {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .BanBen-Zhi-BaoZhuangQi {
@@ -374,9 +341,7 @@ body {
   flex-shrink: 0;
 }
 
-/* =============================================
-   通道选择器 — 玻璃拟态标签
-   ============================================= */
+/* 通道选择器 */
 .TongDao-XuanZeQi {
   display: flex;
   gap: 8px;
@@ -386,51 +351,32 @@ body {
   padding: 6px 14px;
   border-radius: 8px;
   border: 1px solid var(--border-color);
-  background: var(--card-bg);
+  background: var(--input-bg);
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   font-family: inherit;
-  backdrop-filter: blur(40px) saturate(1.3);
-  -webkit-backdrop-filter: blur(40px) saturate(1.3);
 }
 
 .TongDao-AnNiu:hover {
   border-color: var(--primary-color);
-  background: var(--input-bg);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-@media (prefers-color-scheme: dark) {
-  .TongDao-AnNiu:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  }
 }
 
 .TongDao-AnNiu.JiHuo {
   background: var(--primary-color);
   border-color: var(--primary-color);
   color: #ffffff;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  transform: none;
-  box-shadow: 0 2px 6px rgba(0, 174, 0, 0.25);
 }
 
-/* =============================================
-   更新状态
-   ============================================= */
+/* 更新状态 */
 .GengXin-ZhuangTai {
   margin: 16px 0;
   padding: 12px 16px;
-  background: var(--card-bg);
+  background: var(--input-bg);
   border-radius: 10px;
   border: 1px solid var(--border-color);
-  backdrop-filter: blur(40px) saturate(1.3);
-  -webkit-backdrop-filter: blur(40px) saturate(1.3);
 }
 
 #GengXin-ZhuangTai-WenBen {
@@ -438,9 +384,6 @@ body {
   color: var(--text-secondary);
 }
 
-/* =============================================
-   进度条
-   ============================================= */
 .JinDu-RongQi {
   margin: 16px 0;
 }
@@ -451,16 +394,14 @@ body {
   border-radius: 3px;
   overflow: hidden;
   margin-bottom: 8px;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 .JinDu-TianChong {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  background: var(--primary-color);
   border-radius: 3px;
   width: 0%;
-  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s ease;
 }
 
 .JinDu-WenBen {
@@ -469,9 +410,7 @@ body {
   text-align: center;
 }
 
-/* =============================================
-   操作按钮区域
-   ============================================= */
+/* 操作按钮区域 */
 .GengXin-CaoZuo {
   display: flex;
   gap: 12px;
@@ -482,14 +421,14 @@ body {
   flex: 1;
 }
 
-/* 按钮组合容器 */
+/* 按钮组合容器 - 与检查更新按钮平衡 */
 .AnNiu-ZuHe {
   flex: 1;
   display: flex;
   gap: 8px;
 }
 
-/* 组合内的按钮 */
+/* 组合内的按钮 - 各占一半，与检查更新按钮视觉平衡 */
 .AnNiu-ZuHe button {
   flex: 1;
   height: 36px;
@@ -498,26 +437,16 @@ body {
   justify-content: center;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--card-bg);
+  background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 0;
-  backdrop-filter: blur(40px) saturate(1.3);
-  -webkit-backdrop-filter: blur(40px) saturate(1.3);
 }
 
 .AnNiu-ZuHe button:hover {
-  background: var(--input-bg);
+  background: var(--surface-variant);
   color: var(--text-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-@media (prefers-color-scheme: dark) {
-  .AnNiu-ZuHe button:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  }
 }
 
 .AnNiu-ZuHe button svg {
@@ -525,46 +454,39 @@ body {
   height: 18px;
 }
 
-/* 删除按钮悬停 */
+/* 删除按钮悬停 - 红色背景 */
 .AnNiu-ZuHe .AnNiu-WeiXian:hover {
   background: var(--danger-color);
   color: white;
   border-color: var(--danger-color);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
 }
 
-/* 设定按钮 */
+/* 设定按钮 - 覆盖 components.css 中的样式，确保与删除按钮一样大 */
 .AnNiu-ZuHe .AnNiu-SheZhi {
   padding: 0 !important;
   border-radius: 8px;
-  backdrop-filter: blur(40px) saturate(1.3);
-  -webkit-backdrop-filter: blur(40px) saturate(1.3);
+  backdrop-filter: none;
   font-size: inherit;
   font-weight: inherit;
   gap: 0;
-  background: var(--card-bg);
+  background: transparent;
 }
 
 .AnNiu-ZuHe .AnNiu-SheZhi:hover {
   background: #008C00 !important;
   color: white !important;
   border-color: #008C00 !important;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 174, 0, 0.3);
 }
 
 .AnNiu-ZuHe .AnNiu-SheZhi .AnNiu-TuBiao {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s ease;
 }
 
 .AnNiu-ZuHe .AnNiu-SheZhi:hover .AnNiu-TuBiao {
   transform: rotate(90deg);
 }
 
-/* =============================================
-   设置面板
-   ============================================= */
+/* 设置面板 */
 #SheDing-MianBan {
   margin-top: 16px;
 }
@@ -576,7 +498,7 @@ body {
   margin: 20px 0 16px;
 }
 
-/* 开关列表 */
+/* 开关列表 - 横向排布 */
 .Aa-KaiGuan-LieBiao {
   display: flex;
   flex-direction: row;
@@ -589,11 +511,9 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  background: var(--card-bg);
+  background: var(--input-bg);
   border-radius: 10px;
   border: 1px solid var(--border-color);
-  backdrop-filter: blur(40px) saturate(1.3);
-  -webkit-backdrop-filter: blur(40px) saturate(1.3);
 }
 
 .Aa-KaiGuan-BiaoQian {
@@ -603,9 +523,7 @@ body {
   white-space: nowrap;
 }
 
-/* =============================================
-   通知列表
-   ============================================= */
+/* 通知列表 */
 .Bb-LieBiao {
   display: flex;
   flex-direction: column;
@@ -621,25 +539,10 @@ body {
 
 .Bb-XiangMu {
   padding: 14px;
-  background: var(--card-bg);
+  background: var(--input-bg);
   border-radius: 10px;
   border: 1px solid var(--border-color);
   animation: huaRu 0.3s ease forwards;
-  backdrop-filter: blur(40px) saturate(1.3);
-  -webkit-backdrop-filter: blur(40px) saturate(1.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.Bb-XiangMu:hover {
-  background: var(--input-bg);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-@media (prefers-color-scheme: dark) {
-  .Bb-XiangMu:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  }
 }
 
 .Bb-XiangMu:nth-child(1) { animation-delay: 0.1s; }
@@ -673,9 +576,7 @@ body {
   text-decoration: underline;
 }
 
-/* =============================================
-   关于面板
-   ============================================= */
+/* 关于面板 */
 .Cc-NeiRong {
   display: flex;
   flex-direction: column;
@@ -728,24 +629,13 @@ body {
 
 .AnNiu-ChongZai {
   width: 100%;
-  background: var(--card-bg);
+  background: var(--surface-variant);
   color: var(--text-primary);
   font-weight: 500;
-  backdrop-filter: blur(40px) saturate(1.3);
-  -webkit-backdrop-filter: blur(40px) saturate(1.3);
-  border: 1px solid var(--border-color);
 }
 
 .AnNiu-ChongZai:hover {
-  background: var(--input-bg);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-@media (prefers-color-scheme: dark) {
-  .AnNiu-ChongZai:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  }
+  background: var(--border-color);
 }
 
 .AnNiu-ChongZai .AnNiu-TuBiao {
@@ -754,17 +644,13 @@ body {
 
 .AnNiu-ChongZhi {
   width: 100%;
-  background: var(--danger-color);
+  background: #dc3545;
   color: #ffffff;
   font-weight: 500;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .AnNiu-ChongZhi:hover {
-  background: var(--danger-dark);
-  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
-  transform: translateY(-1px);
+  background: #c82333;
 }
 
 .AnNiu-ChongZhi .AnNiu-TuBiao {
@@ -776,34 +662,29 @@ body {
   font-size: 13px;
   background: var(--danger-color);
   color: var(--danger-text);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .AnNiu-XieZai:hover {
   background: var(--danger-dark);
-  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
-  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
-/* =============================================
-   对话框 — 玻璃拟态
-   ============================================= */
+/* 对话框 */
 .DuiHua-ZheZhao {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(80px) saturate(1.5);
+  -webkit-backdrop-filter: blur(80px) saturate(1.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
   opacity: 0;
-  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.3s ease;
 }
 
 .DuiHua-ZheZhao.JiHuo {
@@ -811,30 +692,20 @@ body {
 }
 
 .DuiHua-Kuang {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(80px) saturate(1.5);
-  -webkit-backdrop-filter: blur(80px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: var(--dialog-bg);
+  backdrop-filter: blur(40px) saturate(1.3);
+  -webkit-backdrop-filter: blur(40px) saturate(1.3);
+  border: 1px solid var(--border-color);
   border-radius: 16px;
   width: 90%;
   max-width: 420px;
   padding: 0;
   box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    var(--shadow-lg),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
   transform: scale(0.95);
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
-}
-
-@media (prefers-color-scheme: dark) {
-  .DuiHua-Kuang {
-    background: rgba(26, 26, 26, 0.75);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow:
-      0 24px 48px rgba(0, 0, 0, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  }
 }
 
 .DuiHua-ZheZhao.JiHuo .DuiHua-Kuang {
@@ -882,9 +753,7 @@ body {
   justify-content: center;
 }
 
-/* =============================================
-   滚动条
-   ============================================= */
+/* 滚动条 */
 .KaPian-ZhuTi::-webkit-scrollbar {
   width: 6px;
 }
@@ -900,4 +769,341 @@ body {
 
 .KaPian-ZhuTi::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* =============================================
+   人机验证（滑块验证 + 确认弹窗）
+   来源：OOOInterface reset confirmation
+   ============================================= */
+@keyframes alert-flash {
+  0%, 100% { background-color: #dc2626; border-color: #ef4444; box-shadow: 0 0 40px rgba(239, 68, 68, 0.5); }
+  50% { background-color: #b91c1c; border-color: #dc2626; box-shadow: 0 0 60px rgba(239, 68, 68, 0.8); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+
+@keyframes hint-pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.RenJi-YanZheng-ZheZhao {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(80px) saturate(1.5);
+  -webkit-backdrop-filter: blur(80px) saturate(1.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.RenJi-YanZheng-ZheZhao.JiHuo {
+  opacity: 1;
+}
+
+/* ---- 第一步：红色警报确认 ---- */
+.QueRen-DuiHua {
+  border-radius: 16px;
+  padding: 32px;
+  width: 90%;
+  max-width: 380px;
+  animation: alert-flash 0.8s ease-in-out infinite;
+  transform: scale(0.92) translateY(20px);
+  opacity: 0;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.RenJi-YanZheng-ZheZhao.JiHuo .QueRen-DuiHua {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.QueRen-DuiHua-TuBiao {
+  text-align: center;
+  margin-bottom: 16px;
+  line-height: 1;
+}
+
+.QueRen-DuiHua-TuBiao svg {
+  width: 48px;
+  height: 48px;
+  color: #ffffff;
+}
+
+.QueRen-DuiHua-BiaoTi {
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  color: #ffffff;
+  margin-bottom: 8px;
+  line-height: 1.5;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.QueRen-DuiHua-XiaoXi {
+  font-size: 14px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 24px;
+  line-height: 1.5;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.QueRen-DuiHua-AnNiu {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.QueRen-DuiHua-AnNiu button {
+  flex: 1;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.3);
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.QueRen-DuiHua-AnNiu button:hover {
+  transform: translateY(-1px);
+}
+
+.QueRen-DuiHua-AnNiu .btn-quxiao {
+  background: rgba(220, 38, 38, 0.8);
+}
+
+.QueRen-DuiHua-AnNiu .btn-quxiao:hover {
+  background: rgba(220, 38, 38, 1);
+}
+
+.QueRen-DuiHua-AnNiu .btn-queren {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+.QueRen-DuiHua-AnNiu .btn-queren:hover {
+  background: rgba(239, 68, 68, 1);
+}
+
+/* ---- 第二步：滑块验证 ---- */
+.HuaKuai-DuiHua {
+  background: var(--dialog-bg);
+  backdrop-filter: blur(40px) saturate(1.3);
+  -webkit-backdrop-filter: blur(40px) saturate(1.3);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 380px;
+  box-shadow:
+    var(--shadow-lg),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transform: scale(0.92) translateY(20px);
+  opacity: 0;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.RenJi-YanZheng-ZheZhao.JiHuo .HuaKuai-DuiHua {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.HuaKuai-TuPian {
+  width: 100%;
+  height: 170px;
+  border-radius: 12px;
+  background: url('../assets/images/back.png') 0 0 / 100% 100% no-repeat;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color);
+}
+
+.HuaKuai-QueKou {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border: 2px dashed rgba(255, 255, 255, 0.8);
+  border-radius: 6px;
+  background: var(--background-color);
+  z-index: 2;
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .HuaKuai-QueKou {
+    background: var(--background-color);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+.HuaKuai-PinTu {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  z-index: 3;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.HuaKuai-GuiDao {
+  position: relative;
+  height: 44px;
+  background: var(--surface-color);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  user-select: none;
+  margin-bottom: 8px;
+}
+
+.HuaKuai-TianChong {
+  height: 100%;
+  background: var(--primary-color);
+  opacity: 0.5;
+  border-radius: 12px;
+  width: 0;
+  transition: none;
+}
+
+.HuaKuai-HuaKuai {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  background: var(--primary-color);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  z-index: 4;
+  color: white;
+  font-size: 18px;
+  transition: box-shadow 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.HuaKuai-HuaKuai:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.HuaKuai-HuaKuai:active {
+  cursor: grabbing;
+}
+
+.HuaKuai-HuaKuai.yanZhengChengGong {
+  background: #22c55e;
+  cursor: default;
+  pointer-events: none;
+}
+
+.HuaKuai-HuaKuai.yanZhengShiBai {
+  background: #ef4444;
+  animation: shake 0.4s ease;
+}
+
+.HuaKuai-TiShi {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  min-height: 20px;
+  transition: all 0.3s ease;
+}
+
+.HuaKuai-TiShi.chengGong {
+  color: #22c55e;
+  font-weight: 500;
+}
+
+.HuaKuai-TiShi.shiBai {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.HuaKuai-TiShi.chuanQi {
+  color: #f59e0b;
+  font-weight: 600;
+  font-size: 15px;
+  animation: hint-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.HuaKuai-TiShi.zuiJia {
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 15px;
+  animation: hint-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---- 第三步：最终确认 ---- */
+.ZuiHou-QueRen-DuiHua {
+  border-radius: 16px;
+  padding: 32px;
+  width: 90%;
+  max-width: 380px;
+  animation: alert-flash 0.8s ease-in-out infinite;
+  transform: scale(0.92) translateY(20px);
+  opacity: 0;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.RenJi-YanZheng-ZheZhao.JiHuo .ZuiHou-QueRen-DuiHua {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.ZuiHou-QueRen-FuXuanKuang {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  user-select: none;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.ZuiHou-QueRen-FuXuanKuang input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #ffffff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ZuiHou-QueRen-FuXuanKuang label {
+  font-size: 14px;
+  color: #ffffff;
+  cursor: pointer;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.ZuiHou-QueRen-AnNiu:disabled {
+  background: rgba(100, 100, 100, 0.5) !important;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: not-allowed;
+  transform: none;
+  border-color: transparent;
 }

@@ -3,8 +3,8 @@ module.exports = {
     name: "OOOInterface 易升",
     nameEn: "OOOInterface Update Assistant",
     shortName: "OUA",
-    version: "0.4.1",
-    fullVersion: "0.4.1:01-BS61",
+    version: "0.5.0",
+    fullVersion: "0.5.0:01-BS70",
     copyright: "© 2026 ByRUDAN 保留所有权利。",
     contact: "wyjcrtu@proton.me"
   },

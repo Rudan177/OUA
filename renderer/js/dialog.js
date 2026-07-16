@@ -100,6 +100,19 @@
     }
   });
 
+  // ESC 关闭对话框
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && DuiHuaZheZhao.classList.contains('JiHuo')) {
+      if (ShiFouSanAnNiuMoShi()) {
+        YinCangDuiHua(-1);
+      } else if (!DuiHuaQuXiao.classList.contains('YinCang')) {
+        YinCangDuiHua(false);
+      } else {
+        YinCangDuiHua(true);
+      }
+    }
+  });
+
   window.DialogManager = {
     XianShi: XianShiDuiHua,
     TiShi: function(biaoTi, xiaoXi, xuanXiang = {}) {

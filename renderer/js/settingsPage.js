@@ -33,6 +33,16 @@ window.SettingsPage = {
         }
       });
     }
+
+    // ESC 关闭设置弹窗
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const zheZhao = document.getElementById('SheZhi-ZheZhao');
+        if (zheZhao && zheZhao.classList.contains('JiHuo')) {
+          this.guanBiSheZhi();
+        }
+      }
+    });
   },
 
   zhanKaiXiangQing: function(option) {
