@@ -95,7 +95,6 @@
         if (caoZuoCuo) throw caoZuoCuo;
         xianShi = i;
         GengXinJinDu.style.width = xianShi + '%';
-        GengXinJinDuWenBen.textContent = `网络检测 ${xianShi}%`;
       }
 
       // 阶段2: 10~80% 匀速（即使下载完成也保持此速度）
@@ -104,7 +103,6 @@
         if (caoZuoCuo) throw caoZuoCuo;
         xianShi = Math.min(80, xianShi + suDu);
         GengXinJinDu.style.width = xianShi + '%';
-        GengXinJinDuWenBen.textContent = `下载中 ${xianShi}%`;
       }
 
       // 阶段3: 80~100% 跟随真实进度
@@ -121,12 +119,10 @@
         // 若 muBiao ≤ xianShi 则自然降速，不做额外跳动
 
         GengXinJinDu.style.width = xianShi + '%';
-        GengXinJinDuWenBen.textContent = zhenShi.message || `进度: ${Math.round(xianShi)}%`;
       }
 
       await caoZuoPromise;
       GengXinJinDu.style.width = '100%';
-      GengXinJinDuWenBen.textContent = '完成';
     } finally {
       if (quXiaoJianTing) quXiaoJianTing();
     }
@@ -681,7 +677,6 @@
       await window.electronAPI.update.importLocalZip(zipLuJing);
 
       GengXinJinDu.style.width = '100%';
-      GengXinJinDuWenBen.textContent = '导入完成';
       GengXinZhuangTaiWenBen.textContent = '导入完成，正在刷新...';
 
       setTimeout(async () => {
@@ -832,7 +827,6 @@
     window.electronAPI.update.onUpdateProgress((data) => {
       if (data && data.percent !== undefined) {
         GengXinJinDu.style.width = data.percent + '%';
-        GengXinJinDuWenBen.textContent = data.message || `进度: ${Math.round(data.percent)}%`;
       }
     });
   }
