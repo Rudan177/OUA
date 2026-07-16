@@ -1,0 +1,754 @@
+/**
+ * 主样式文件
+ */
+@font-face {
+  font-family: 'HarmonyOS';
+  src: url('../assets/fonts/HarmonyOS_SansSC.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@keyframes kuangjia {
+  0% { opacity: 0; filter: blur(20px); }
+  50% { opacity: 0.95; filter: blur(0.5px); }
+  100% { opacity: 1; filter: blur(0px); }
+}
+
+@keyframes xuanZhuan {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes huaRu {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes danRu {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'HarmonyOS', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, rgba(0, 174, 0, 0.1) 0%, rgba(16, 191, 144, 0.1) 100%),
+      radial-gradient(circle at 20% 50%, rgba(0, 174, 0, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(16, 191, 144, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 40% 20%, rgba(0, 174, 0, 0.03) 0%, transparent 30%),
+      radial-gradient(circle at 60% 70%, rgba(16, 191, 144, 0.03) 0%, transparent 30%);
+  background-color: var(--background-color);
+  color: var(--text-primary);
+  line-height: 1.6;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.PingMu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.PingMu.JiHuo {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.AnNiu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+}
+
+.AnNiu-Zhu {
+  background: var(--primary-color);
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+}
+
+.AnNiu-Zhu:hover {
+  background: var(--primary-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+.AnNiu-Fu {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  backdrop-filter: blur(10px);
+}
+
+.AnNiu-Fu:hover {
+  background: var(--border-color);
+}
+
+.AnNiu-Wei-Xian {
+  background: #dc3545;
+  color: #ffffff;
+}
+
+.AnNiu-WeiXian:hover {
+  background: #c82333;
+  box-shadow: var(--shadow-sm);
+}
+
+/* 导入模式按钮 */
+.AnNiu-DaoRu {
+  background: var(--primary-color);
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.AnNiu-DaoRu:hover {
+  background: var(--primary-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+.AnNiu-DaoRu .AnNiu-TuBiao {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+}
+
+.AnNiu-DaoRu:hover .AnNiu-TuBiao {
+  transform: translateY(2px);
+}
+
+/* 拖放遮罩层 */
+#TuoZhua-ZhaoCeng {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+#TuoZhua-ZhaoCeng.TuoZhua-HuoYue {
+  opacity: 1;
+}
+
+#TuoZhua-ZhaoCeng.YinCang {
+  display: none !important;
+}
+
+.TuoZhua-NeiRong {
+  text-align: center;
+  color: #ffffff;
+}
+
+.TuoZhua-TuBiao {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 20px;
+  opacity: 0.8;
+}
+
+.TuoZhua-WenBen {
+  font-size: 20px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.AnNiu-Da {
+  padding: 12px 32px;
+  font-size: 16px;
+  width: 100%;
+}
+
+.AnNiu-Xiao {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.AnNiu.JiaZaiZhong {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.AnNiu.JiaZaiZhong .AnNiu-TuBiao {
+  animation: xuanZhuan 1s linear infinite;
+}
+
+.YinCang {
+  display: none !important;
+}
+
+/* 主屏幕布局 */
+.YingYong-RongQi {
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  padding-right: 0;
+  display: flex;
+  gap: 20px;
+  overflow: hidden;
+}
+
+.Zuo-MianBan {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-left: 0;
+}
+
+.You-MianBan {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+  margin-right: 20px;
+}
+
+.KaPian {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  overflow: hidden;
+  animation: kuangjia 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(10px);
+}
+
+.Aa-MianBan {
+  flex: 1;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.Bb-MianBan {
+  flex: 1;
+  min-height: 0;
+}
+
+.Cc-MianBan {
+  flex-shrink: 0;
+}
+
+.KaPian-TouBu {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.KaPian-TuBiao {
+  width: 20px;
+  height: 20px;
+  background: var(--primary-color);
+  border-radius: 50%;
+}
+
+.KaPian-BiaoTi {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.KaPian-ZhuTi {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* 版本信息 */
+.BanBen-XinXi {
+  margin-bottom: 20px;
+}
+
+.BanBen-Hang {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.BanBen-Hang:last-child {
+  border-bottom: none;
+}
+
+.BanBen-BiaoQian {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.BanBen-Zhi {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.BanBen-Zhi-BaoZhuangQi {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.BanBen-Zhi-BaoZhuangQi .BanBen-Zhi {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.BanBen-Zhi-BaoZhuangQi .AnNiu {
+  flex-shrink: 0;
+}
+
+/* 通道选择器 */
+.TongDao-XuanZeQi {
+  display: flex;
+  gap: 8px;
+}
+
+.TongDao-AnNiu {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.TongDao-AnNiu:hover {
+  border-color: var(--primary-color);
+}
+
+.TongDao-AnNiu.JiHuo {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #ffffff;
+}
+
+/* 更新状态 */
+.GengXin-ZhuangTai {
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: var(--input-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+#GengXin-ZhuangTai-WenBen {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.JinDu-RongQi {
+  margin: 16px 0;
+}
+
+.JinDu-Tiao {
+  height: 6px;
+  background: var(--input-bg);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.JinDu-TianChong {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.JinDu-WenBen {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* 操作按钮区域 */
+.GengXin-CaoZuo {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.GengXin-CaoZuo .AnNiu {
+  flex: 1;
+}
+
+/* 按钮组合容器 - 与检查更新按钮平衡 */
+.AnNiu-ZuHe {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+}
+
+/* 组合内的按钮 - 各占一半，与检查更新按钮视觉平衡 */
+.AnNiu-ZuHe button {
+  flex: 1;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+}
+
+.AnNiu-ZuHe button:hover {
+  background: var(--surface-variant);
+  color: var(--text-primary);
+}
+
+.AnNiu-ZuHe button svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* 删除按钮悬停 - 红色背景 */
+.AnNiu-ZuHe .AnNiu-WeiXian:hover {
+  background: var(--danger-color);
+  color: white;
+  border-color: var(--danger-color);
+}
+
+/* 设定按钮 - 覆盖 components.css 中的样式，确保与删除按钮一样大 */
+.AnNiu-ZuHe .AnNiu-SheZhi {
+  padding: 0 !important;
+  border-radius: 8px;
+  backdrop-filter: none;
+  font-size: inherit;
+  font-weight: inherit;
+  gap: 0;
+  background: transparent;
+}
+
+.AnNiu-ZuHe .AnNiu-SheZhi:hover {
+  background: #008C00 !important;
+  color: white !important;
+  border-color: #008C00 !important;
+}
+
+.AnNiu-ZuHe .AnNiu-SheZhi .AnNiu-TuBiao {
+  transition: transform 0.3s ease;
+}
+
+.AnNiu-ZuHe .AnNiu-SheZhi:hover .AnNiu-TuBiao {
+  transform: rotate(90deg);
+}
+
+/* 设置面板 */
+#SheDing-MianBan {
+  margin-top: 16px;
+}
+
+/* 分隔线 */
+.Aa-FenGeXian {
+  height: 1px;
+  background: var(--border-color);
+  margin: 20px 0 16px;
+}
+
+/* 开关列表 - 横向排布 */
+.Aa-KaiGuan-LieBiao {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+}
+
+.Aa-KaiGuan-Xiang {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--input-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.Aa-KaiGuan-BiaoQian {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* 通知列表 */
+.Bb-LieBiao {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.Bb-JiaZaiZhong {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 20px 0;
+}
+
+.Bb-XiangMu {
+  padding: 14px;
+  background: var(--input-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  animation: huaRu 0.3s ease forwards;
+}
+
+.Bb-XiangMu:nth-child(1) { animation-delay: 0.1s; }
+.Bb-XiangMu:nth-child(2) { animation-delay: 0.2s; }
+.Bb-XiangMu:nth-child(3) { animation-delay: 0.3s; }
+
+.Bb-BiaoTi {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.Bb-WenBen {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.Bb-LianJie {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--primary-color);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.Bb-LianJie:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+/* 关于面板 */
+.Cc-NeiRong {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.Cc-XiangMu {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.Cc-XiangMu:last-child {
+  border-bottom: none;
+}
+
+.Cc-BiaoQian {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.Cc-Zhi {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.Cc-LianJie {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.Cc-LianJie:hover {
+  text-decoration: underline;
+}
+
+.Cc-CaoZuo {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.Cc-CaoZuo.YinCang {
+  display: none !important;
+}
+
+.AnNiu-ChongZai {
+  width: 100%;
+  background: var(--surface-variant);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.AnNiu-ChongZai:hover {
+  background: var(--border-color);
+}
+
+.AnNiu-ChongZai .AnNiu-TuBiao {
+  font-size: 16px;
+}
+
+.AnNiu-ChongZhi {
+  width: 100%;
+  background: #dc3545;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.AnNiu-ChongZhi:hover {
+  background: #c82333;
+}
+
+.AnNiu-ChongZhi .AnNiu-TuBiao {
+  font-size: 16px;
+}
+
+.AnNiu-XieZai {
+  padding: 8px 16px;
+  font-size: 13px;
+  background: var(--danger-color);
+  color: var(--danger-text);
+}
+
+.AnNiu-XieZai:hover {
+  background: var(--danger-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 对话框 */
+.DuiHua-ZheZhao {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.DuiHua-ZheZhao.JiHuo {
+  opacity: 1;
+}
+
+.DuiHua-Kuang {
+  background: var(--dialog-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 420px;
+  padding: 0;
+  box-shadow: var(--shadow-lg);
+  transform: scale(0.95);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.DuiHua-ZheZhao.JiHuo .DuiHua-Kuang {
+  transform: scale(1);
+}
+
+.DuiHua-TouBu {
+  padding: 20px 24px 12px;
+}
+
+.DuiHua-BiaoTi {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.DuiHua-ZhuTi {
+  padding: 8px 24px 20px;
+}
+
+.DuiHua-XiaoXi {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.DuiHua-DiBu {
+  padding: 16px 24px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-color);
+}
+
+.DuiHua-DiBu .AnNiu {
+  min-width: 80px;
+}
+
+/* 滚动条 */
+.KaPian-ZhuTi::-webkit-scrollbar {
+  width: 6px;
+}
+
+.KaPian-ZhuTi::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.KaPian-ZhuTi::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.KaPian-ZhuTi::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

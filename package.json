@@ -1,0 +1,28 @@
+{
+  "name": "oua",
+  "version": "0.4.1",
+  "description": "OOOInterface易升",
+  "main": "main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "clean": "node scripts/clean.js"
+  },
+  "keywords": [
+    "OOOInterface",
+    "updater",
+    "assistant"
+  ],
+  "author": "ByRUDAN",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^42.0.1",
+    "electron-builder": "^26.8.1"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.0",
+    "https-proxy-agent": "^9.0.0",
+    "simple-git": "^3.36.0"
+  }
+}

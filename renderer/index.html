@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: file:;">
+  <title>OOOInterface Update Assistant</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/light.css">
+  <link rel="stylesheet" href="css/dark.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <div id="Zhu-PingMu" class="PingMu JiHuo">
+    <div class="YingYong-RongQi">
+      <div class="Zuo-MianBan">
+        <div class="KaPian Aa-MianBan" id="Aa-KaPian">
+          <div class="KaPian-TouBu">
+            <span class="KaPian-TuBiao"></span>
+            <h2 class="KaPian-BiaoTi">更新面板</h2>
+          </div>
+          <div class="KaPian-ZhuTi">
+            <div class="BanBen-XinXi">
+              <div class="BanBen-Hang">
+                <span class="BanBen-BiaoQian">安装目录</span>
+                <div class="BanBen-Zhi-BaoZhuangQi">
+                  <span id="AnZhuang-LuJing-XianShi" class="BanBen-Zhi" title="">未设置</span>
+                  <button id="AnNiu-GengHuan-LuJing" class="AnNiu AnNiu-Fu AnNiu-Xiao">更换</button>
+                </div>
+              </div>
+              <div class="BanBen-Hang">
+                <span class="BanBen-BiaoQian">当前版本</span>
+                <span id="DangQian-BanBen" class="BanBen-Zhi">检测中...</span>
+              </div>
+              <div class="BanBen-Hang">
+                <span class="BanBen-BiaoQian">更新通道</span>
+                <div class="TongDao-XuanZeQi">
+                  <button id="AnNiu-ChangQiZhiChiBan" class="TongDao-AnNiu JiHuo" data-branch="LTS">长期支持版</button>
+                  <button id="AnNiu-ZhengShiBan" class="TongDao-AnNiu" data-branch="main">正式版</button>
+                  <button id="AnNiu-ChangXianBan" class="TongDao-AnNiu" data-branch="test">尝鲜版</button>
+                  <button id="AnNiu-BenDi" class="TongDao-AnNiu" data-branch="local">本地</button>
+                </div>
+              </div>
+              <div class="BanBen-Hang">
+                <span class="BanBen-BiaoQian">远程版本</span>
+                <span id="YuanCheng-BanBen" class="BanBen-Zhi">-</span>
+              </div>
+            </div>
+            <div id="GengXin-ZhuangTai" class="GengXin-ZhuangTai">
+              <p id="GengXin-ZhuangTai-WenBen">正在检查更新...</p>
+            </div>
+            <div id="GengXin-JinDu-RongQi" class="JinDu-RongQi YinCang">
+              <div class="JinDu-Tiao">
+                <div id="GengXin-JinDu" class="JinDu-TianChong"></div>
+              </div>
+              <p id="GengXin-JinDu-WenBen" class="JinDu-WenBen">准备中...</p>
+            </div>
+            <div class="GengXin-CaoZuo">
+              <button id="AnNiu-JianCha-GengXin" class="AnNiu AnNiu-Zhu">检查更新</button>
+              <div class="AnNiu-ZuHe">
+                <button id="AnNiu-XieZai" class="AnNiu-WeiXian" title="一键卸载">
+                  <svg class="AnNiu-TuBiao" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                </button>
+                <button id="AnNiu-SheDing" class="AnNiu-SheZhi" title="设置">
+                  <svg class="AnNiu-TuBiao" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                  </svg>
+                </button>
+              </div>
+              <button id="AnNiu-GengXin" class="AnNiu AnNiu-Zhu YinCang">立即更新</button>
+            </div>
+            <div id="SheDing-MianBan" class="YinCang">
+              <div class="Aa-FenGeXian"></div>
+              <div class="Aa-KaiGuan-LieBiao">
+                <div class="Aa-KaiGuan-Xiang">
+                  <span class="Aa-KaiGuan-BiaoQian">开机启动</span>
+                  <label class="switch">
+                    <input type="checkbox" id="KaiGuan-KaiJiQiDong">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="Aa-KaiGuan-Xiang">
+                  <span class="Aa-KaiGuan-BiaoQian">最小化到托盘</span>
+                  <label class="switch">
+                    <input type="checkbox" id="KaiGuan-ZuiXiaoHua-TuoPan">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="Aa-KaiGuan-Xiang">
+                  <span class="Aa-KaiGuan-BiaoQian">自动更新</span>
+                  <label class="switch">
+                    <input type="checkbox" id="KaiGuan-ZiDong-GengXin">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="You-MianBan">
+        <div class="KaPian Bb-MianBan" id="Bb-KaPian">
+          <div class="KaPian-TouBu">
+            <span class="KaPian-TuBiao"></span>
+            <h2 class="KaPian-BiaoTi">OOOInterface 通知</h2>
+          </div>
+          <div class="KaPian-ZhuTi">
+            <div id="Bb-LieBiao" class="Bb-LieBiao">
+              <p class="Bb-JiaZaiZhong">正在加载通知...</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="KaPian Cc-MianBan" id="Cc-KaPian">
+          <div class="KaPian-TouBu">
+            <span class="KaPian-TuBiao"></span>
+            <h2 class="KaPian-BiaoTi">关于本软件</h2>
+          </div>
+          <div class="KaPian-ZhuTi">
+            <div class="Cc-NeiRong">
+              <div class="Cc-XiangMu">
+                <span class="Cc-BiaoQian">版本号</span>
+                <span id="BanBen-Hao" class="Cc-Zhi">0.4.0:01-BS60</span>
+              </div>
+              <div class="Cc-XiangMu">
+                <span class="Cc-BiaoQian">联系方式</span>
+                <a href="mailto:wyjcrtu@proton.me" class="Cc-Zhi Cc-LianJie">wyjcrtu@proton.me</a>
+              </div>
+              <div class="Cc-XiangMu">
+                <span class="Cc-BiaoQian">版权所有</span>
+                <span class="Cc-Zhi">© 2026 ByRUDAN 保留所有权利。</span>
+              </div>
+            </div>
+          </div>
+          <div id="Cc-CaoZuo" class="Cc-CaoZuo YinCang">
+            <button id="AnNiu-SheZhi" class="AnNiu AnNiu-Fu AnNiu-SheZhi" title="设置">
+              <svg class="AnNiu-TuBiao" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+              </svg>
+              <span>设置</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="DuiHua-ZheZhao" class="DuiHua-ZheZhao YinCang">
+    <div class="DuiHua-Kuang">
+      <div class="DuiHua-TouBu">
+        <h3 id="DuiHua-BiaoTi" class="DuiHua-BiaoTi">提示</h3>
+      </div>
+      <div class="DuiHua-ZhuTi">
+        <p id="DuiHua-XiaoXi" class="DuiHua-XiaoXi"></p>
+      </div>
+      <div class="DuiHua-DiBu">
+        <button id="DuiHua-QuXiao" class="AnNiu AnNiu-Fu YinCang">取消</button>
+        <button id="DuiHua-QueRen" class="AnNiu AnNiu-Zhu">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="SheZhi-ZheZhao" class="modal YinCang">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>设置</h2>
+        <button id="SheZhi-GuanBi" class="close-btn">&times;</button>
+      </div>
+      
+      <div class="settings-layout">
+        <div class="settings-left-panel">
+          <div class="modal-body">
+            <div class="settings-menu-container">
+              <div class="settings-menu-options">
+                <div class="settings-menu-option" data-target="daiLi">
+                  网络代理设置
+                </div>
+                <div class="settings-menu-option" data-target="xitong">
+                  系统操作
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="settings-right-panel">
+          <div class="right-panel-content">
+            <div class="right-panel-upper" id="right-panel-upper">
+              <div class="right-panel-placeholder-container">
+                <div class="right-panel-placeholder">选择设置项查看详情</div>
+              </div>
+            </div>
+            <button id="SheZhi-YingYong" class="apply-btn">应用</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="SheZhi-XiangQing-MoBan" class="YinCang">
+    <div id="SheZhi-XiangQing-DaiLi" class="settings-detail-panel">
+      <div class="setting-group">
+        <div class="switch-label" data-toggle="DaiLi-ZiDong-KaiGuan">
+          <span class="setting-label">自动配置代理</span>
+          <div class="switch">
+            <input type="checkbox" id="DaiLi-ZiDong-KaiGuan">
+            <span class="slider"></span>
+          </div>
+        </div>
+      </div>
+      <p id="DaiLi-ZiDong-TiShi" class="SheZhi-TiShi YinCang">自动从系统环境变量和 Windows 代理设置中检测代理</p>
+      <div id="DaiLi-ShouDong-RongQi">
+        <div class="setting-group">
+          <div class="switch-label" data-toggle="DaiLi-KaiGuan">
+            <span class="setting-label">启用代理</span>
+            <div class="switch">
+              <input type="checkbox" id="DaiLi-KaiGuan">
+              <span class="slider"></span>
+            </div>
+          </div>
+        </div>
+        <div id="DaiLi-PeiZhi-RongQi" class="DaiLi-PeiZhi-RongQi YinCang">
+          <div class="setting-group">
+            <label for="DaiLi-IP">IP 地址:</label>
+            <input type="text" id="DaiLi-IP" class="setting-input">
+          </div>
+          <div class="setting-group">
+            <label for="DaiLi-DuanKou">端口:</label>
+            <input type="number" id="DaiLi-DuanKou" class="setting-input">
+          </div>
+          <p class="SheZhi-TiShi">提示: 填写本地代理地址和端口，如 127.0.0.1:7897（Clash 默认端口）</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="SheZhi-XiangQing-XiTong" class="settings-detail-panel">
+      <div class="setting-group">
+        <label>系统操作</label>
+        <div class="xitong-buttons">
+          <button id="SheZhi-ChongQi" class="action-secondary-btn">
+            <span class="AnNiu-TuBiao">⟳</span>
+            关闭并重启
+          </button>
+          <button id="SheZhi-ChongZhi" class="chongZhi-btn">
+            <span class="AnNiu-TuBiao">⟳</span>
+            恢复出厂设置
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="TuoZhua-ZhaoCeng" class="YinCang">
+    <div class="TuoZhua-NeiRong">
+      <svg class="TuoZhua-TuBiao" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      <p class="TuoZhua-WenBen">释放 ZIP 文件以导入</p>
+    </div>
+  </div>
+
+  <script src="js/theme.js"></script>
+  <script src="js/dialog.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/updatePage.js"></script>
+  <script src="js/notificationPage.js"></script>
+  <script src="js/settingsPage.js"></script>
+  <script src="js/aboutPage.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

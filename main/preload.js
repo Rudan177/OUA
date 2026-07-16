@@ -1,0 +1,72 @@
+/**
+ * Preload 脚本 - 安全桥接主进程和渲染进程
+ */
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  isDev: false,
+  folder: {
+    checkStructure: (dirPath) => ipcRenderer.invoke('check-folder-structure', dirPath),
+    getMissingFiles: (dirPath) => ipcRenderer.invoke('get-missing-files', dirPath),
+    containsOOOInterfaceFiles: (dirPath) => ipcRenderer.invoke('contains-ooointerface-files', dirPath),
+    hasWritePermission: (dirPath) => ipcRenderer.invoke('has-write-permission', dirPath),
+    ensureDirectory: (dirPath) => ipcRenderer.invoke('ensure-directory', dirPath),
+    getInstallDir: () => ipcRenderer.invoke('get-install-dir'),
+    setInstallDir: (dirPath) => ipcRenderer.invoke('set-install-dir', dirPath),
+    isFirstRun: () => ipcRenderer.invoke('is-first-run'),
+    getConfig: () => ipcRenderer.invoke('get-config'),
+    getAppPaths: () => ipcRenderer.invoke('get-app-paths'),
+    getUserPaths: () => ipcRenderer.invoke('get-user-paths')
+  },
+  system: {
+    diagnose: () => ipcRenderer.invoke('diagnose-git')
+  },
+  git: {
+    getCurrentBranch: () => ipcRenderer.invoke('get-current-branch'),
+    setBranch: (branch) => ipcRenderer.invoke('set-branch', branch)
+  },
+  update: {
+    getLocalVersion: (installDir) => ipcRenderer.invoke('get-local-version', installDir),
+    getRemoteVersion: (branch) => ipcRenderer.invoke('get-remote-version', branch),
+    compareVersions: (localVersion, remoteVersion) => ipcRenderer.invoke('compare-versions', localVersion, remoteVersion),
+    firstInstall: (targetDir) => ipcRenderer.invoke('first-install', targetDir),
+    forceOverwrite: (targetDir, branch) => ipcRenderer.invoke('force-overwrite', targetDir, branch),
+    updateApp: (targetDir, branch) => ipcRenderer.invoke('update-app', targetDir, branch),
+    switchBranch: (targetDir, branch) => ipcRenderer.invoke('switch-branch', targetDir, branch),
+    importLocalZip: (zipPath) => ipcRenderer.invoke('import-local-zip', zipPath),
+    getBranch: () => ipcRenderer.invoke('get-branch'),
+    setBranch: (branch) => ipcRenderer.invoke('set-branch', branch),
+    onUpdateProgress: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('update-progress', handler);
+      return () => ipcRenderer.removeListener('update-progress', handler);
+    }
+  },
+  dialog: {
+    selectFolder: () => ipcRenderer.invoke('select-folder'),
+    selectZipFile: () => ipcRenderer.invoke('select-zip-file'),
+    showMessage: (options) => ipcRenderer.invoke('show-message', options),
+    fetchNotifications: () => ipcRenderer.invoke('fetch-notifications')
+  },
+  theme: {
+    onThemeChanged: (callback) => {
+      const handler = (_event, theme) => callback(theme);
+      ipcRenderer.on('theme-changed', handler);
+      return () => ipcRenderer.removeListener('theme-changed', handler);
+    }
+  },
+  app: {
+    reset: () => ipcRenderer.invoke('app-reset'),
+    restart: () => ipcRenderer.invoke('app-restart'),
+    uninstall: () => ipcRenderer.invoke('app-uninstall')
+  },
+  settings: {
+    getProxyConfig: () => ipcRenderer.invoke('get-proxy-config'),
+    setProxyConfig: (config) => ipcRenderer.invoke('set-proxy-config', config),
+    getStartupConfig: () => ipcRenderer.invoke('get-startup-config'),
+    setStartupConfig: (config) => ipcRenderer.invoke('set-startup-config', config)
+  },
+  appConfig: {
+    getAppInfo: () => ipcRenderer.invoke('get-app-config')
+  }
+});
