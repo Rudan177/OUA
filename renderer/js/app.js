@@ -40,10 +40,26 @@
           ['远程拉取', '本地导入', '稍后']
         );
 
-        if (xuanZe === 0 || xuanZe === 1) {
-          // 先选择目录
+        if (xuanZe === 0) {
+          // 远程拉取：选择目录后首次安装
           await UpdatePage.ChuLiGengHuanLuJing();
+        } else if (xuanZe === 1) {
+          // 本地导入：选择目录后弹出 ZIP 文件选择器
+          const luJing = await window.electronAPI.dialog.selectFolder();
+          if (luJing) {
+            const hasPermission = await window.electronAPI.folder.hasWritePermission(luJing);
+            if (!hasPermission) {
+              await DialogManager.TiShi('权限错误', '没有对该目录的写入权限');
+            } else {
+              await window.electronAPI.folder.setInstallDir(luJing);
+              const zipLuJing = await window.electronAPI.dialog.selectZipFile();
+              if (zipLuJing) {
+                await UpdatePage.ChuLiBenDiDaoRu(zipLuJing);
+              }
+            }
+          }
         }
+        // xuanZe === 2（稍后）不做任何事
 
         // 如果用户仍然没有选择目录，更新状态文本
         const currentDir = await window.electronAPI.folder.getInstallDir();
@@ -57,12 +73,10 @@
 
     // 启动诊断（仅用于调试）
     if (window.electronAPI?.isDev) {
-      console.log('开始诊断 Git 环境...');
+      console.log('开始诊断环境...');
       window.electronAPI.system.diagnose()
         .then(results => {
           console.log('诊断结果:', results);
-          if (!results.gitAvailable) console.error('Git 不可用:', results.gitError);
-          if (!results.canAccessRepo) console.error('无法访问仓库:', results.repoAccessError);
         })
         .catch(err => console.error('诊断失败:', err));
     }

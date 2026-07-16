@@ -736,6 +736,7 @@
     KaiShiQiangZhiFuGai,
     ChuLiGengHuanLuJing,
     ChuLiTuoZhuaDaoRu,
-    ChuLiKongMuLu
+    ChuLiKongMuLu,
+    ChuLiBenDiDaoRu
   };
 })();
