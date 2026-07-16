@@ -88,6 +88,9 @@
     try {
       let xianShi = 0;
 
+      // 清除默认提示文字
+      GengXinJinDuWenBen.textContent = '';
+
       // 阶段1: 0~10% 网络检测
       const buChang = jianCeShiJian / 10;
       for (let i = 1; i <= 10; i++) {
@@ -822,14 +825,6 @@
   }
 
   Jiazaiqidongshezhi();
-
-  if (window.electronAPI && window.electronAPI.update) {
-    window.electronAPI.update.onUpdateProgress((data) => {
-      if (data && data.percent !== undefined) {
-        GengXinJinDu.style.width = data.percent + '%';
-      }
-    });
-  }
 
   /**
    * 首次安装：目录已选定，根据模式执行后续操作
