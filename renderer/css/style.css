@@ -735,6 +735,15 @@ body {
   min-width: 80px;
 }
 
+.DuiHua-DiBu.ChuiZhi {
+  flex-direction: column;
+}
+.DuiHua-DiBu.ChuiZhi .AnNiu {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+}
+
 /* 滚动条 */
 .KaPian-ZhuTi::-webkit-scrollbar {
   width: 6px;

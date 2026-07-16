@@ -37,7 +37,7 @@
         const xuanZe = await DialogManager.XuanZhe(
           '设置安装目录',
           '尚未设置安装目录，请选择操作方式：',
-          ['选择目录并从远程拉取', '选择目录并从本地导入', '稍后']
+          ['远程拉取', '本地导入', '稍后']
         );
 
         if (xuanZe === 0 || xuanZe === 1) {

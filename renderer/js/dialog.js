@@ -24,15 +24,18 @@
       DuiHuaXiaoXi.textContent = xiaoXi;
 
       // 三按钮模式：SanAnNiu = [按钮0, 按钮1, 按钮2]
-      // 返回对应索引 0, 1, 2（点击遮罩关闭返回 -1）
-      if (xuanXiang.SanAnNiu && xuanXiang.SanAnNiu.length >= 3) {
-        DuiHuaDiSan.textContent = xuanXiang.SanAnNiu[0];
-        DuiHuaDiSan.classList.remove('YinCang');
-        DuiHuaQuXiao.textContent = xuanXiang.SanAnNiu[1];
-        DuiHuaQuXiao.classList.remove('YinCang');
-        DuiHuaQueRen.textContent = xuanXiang.SanAnNiu[2];
-      } else {
-        // 标准双按钮模式
+    // 返回对应索引 0, 1, 2（点击遮罩关闭返回 -1）
+    if (xuanXiang.SanAnNiu && xuanXiang.SanAnNiu.length >= 3) {
+      DuiHuaDiSan.textContent = xuanXiang.SanAnNiu[0];
+      DuiHuaDiSan.classList.remove('YinCang');
+      DuiHuaQuXiao.textContent = xuanXiang.SanAnNiu[1];
+      DuiHuaQuXiao.classList.remove('YinCang');
+      DuiHuaQueRen.textContent = xuanXiang.SanAnNiu[2];
+      // 三按钮模式竖向全宽排列
+      DuiHuaZheZhao.querySelector('.DuiHua-DiBu').classList.add('ChuiZhi');
+    } else {
+      // 标准双按钮模式
+      DuiHuaZheZhao.querySelector('.DuiHua-DiBu').classList.remove('ChuiZhi');
         const { XianShiQuXiao = false, QueRenWenBen = '确定', QuXiaoWenBen = '取消' } = xuanXiang;
 
         DuiHuaDiSan.classList.add('YinCang');
