@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "adm-zip": "^0.6.0",
-    "https-proxy-agent": "^9.0.0",
-    "simple-git": "^3.36.0"
+    "https-proxy-agent": "^9.0.0"
   }
 }

@@ -5,7 +5,6 @@ const { ipcMain } = require('electron');
 const updateService = require('../services/updateService');
 const versionService = require('../services/versionService');
 const configService = require('../services/configService');
-const pathUtils = require('../utils/pathUtils');
 const logger = require('../utils/logger');
 
 function registerUpdateIPC() {
@@ -14,8 +13,7 @@ function registerUpdateIPC() {
   });
 
   ipcMain.handle('get-remote-version', async (event, branch) => {
-    const tempDir = pathUtils.getTempDir();
-    return versionService.getRemoteVersion(tempDir, branch);
+    return versionService.getRemoteVersion(branch);
   });
 
   ipcMain.handle('compare-versions', async (event, localVersion, remoteVersion) => {

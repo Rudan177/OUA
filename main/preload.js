@@ -23,10 +23,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   system: {
     diagnose: () => ipcRenderer.invoke('diagnose-git')
   },
-  git: {
-    getCurrentBranch: () => ipcRenderer.invoke('get-current-branch'),
-    setBranch: (branch) => ipcRenderer.invoke('set-branch', branch)
-  },
   update: {
     getLocalVersion: (installDir) => ipcRenderer.invoke('get-local-version', installDir),
     getRemoteVersion: (branch) => ipcRenderer.invoke('get-remote-version', branch),

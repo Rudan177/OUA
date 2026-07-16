@@ -1,13 +1,13 @@
 /**
- * 更新服务 - 处理应用更新逻辑
+ * 更新服务 - 处理应用更新逻辑（ZIP 下载 + 解压模式）
  */
 const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
-const gitService = require('./gitService');
 const fileUtils = require('../utils/fileUtils');
 const pathUtils = require('../utils/pathUtils');
-const appConfig = require('../config/appConfig');
+const downloadService = require('./downloadService');
+const zipService = require('./zipService');
 
 /**
  * 改进错误消息
@@ -17,72 +17,36 @@ const appConfig = require('../config/appConfig');
 function formatError(error) {
   const message = error.message;
 
-  // 代理连接超时（必须在通用超时判断之前）
   if (message.includes('代理连接超时')) {
     return '代理连接超时。请检查代理是否正常运行，或尝试关闭代理后重试。';
   }
-
-  // 代理 TLS 握手失败（必须在通用 SSL/TLS 判断之前）
   if (message.includes('代理 TLS 握手失败')) {
     return '代理 TLS 握手失败。代理可能不支持 HTTPS 隧道，请检查代理类型或尝试关闭代理。';
   }
-
-  // 代理连接错误（网络层）
   if (message.includes('代理连接错误')) {
     return '代理连接失败。请检查代理地址和端口是否正确，以及代理软件是否运行。';
   }
-
-  // 代理关闭连接
   if (message.includes('代理服务器关闭了连接')) {
     return '代理服务器关闭了连接。请检查代理是否支持 CONNECT 隧道。';
   }
-
-  // 代理返回非200状态码
   if (message.includes('代理连接失败')) {
     return '代理拒绝了连接请求。请检查代理设置是否正确，或尝试关闭代理后重试。';
   }
-
-  // 权限错误
   if (message.includes('Permission denied')) {
     return '没有权限访问该目录。请确保您对所选文件夹有写入权限，或以管理员身份运行程序。';
   }
-
-  // Git 未安装
-  if (message.includes('not found') && message.includes('git')) {
-    return '找不到 Git 命令。请确保已正确安装 Git 并添加到系统环境变量中。';
-  }
-
-  // 认证错误
-  if (message.includes('authentication') || message.includes('auth')) {
-    return '无法访问 GitHub 仓库。请检查网络连接或稍后重试。';
-  }
-
-  // 克隆失败
-  if (message.includes('clone failed')) {
-    return 'Git 克隆失败。请检查路径是否包含特殊字符或空格，并确保目录为空。';
-  }
-
-  // 超时错误
   if (message.includes('timeout') || message.includes('超时')) {
     return '网络连接超时。请检查您的网络连接，或稍后重试。';
   }
-
-  // DNS 解析失败
   if (message.includes('ENOTFOUND') || message.includes('getaddrinfo')) {
     return '无法解析域名。请检查网络连接或 DNS 设置。';
   }
-
-  // 连接被拒绝
   if (message.includes('ECONNREFUSED')) {
     return '连接被拒绝。请检查代理设置或防火墙配置。';
   }
-
-  // 连接重置
   if (message.includes('ECONNRESET')) {
     return '网络连接被重置。请检查网络连接稳定性。';
   }
-
-  // HTTP 状态码错误
   if (message.includes('HTTP 403')) {
     return '访问被拒绝（403）。可能是 GitHub API 访问限制，请稍后重试。';
   }
@@ -92,29 +56,80 @@ function formatError(error) {
   if (message.includes('HTTP 5')) {
     return 'GitHub 服务器错误。请稍后重试。';
   }
-
-  // SSL/TLS 错误
   if (message.includes('SSL') || message.includes('TLS') || message.includes('certificate')) {
     return 'SSL/TLS 连接错误。请检查网络环境或代理设置。';
   }
 
-
-  // 分支不存在
-  if (message.includes('pathspec') && message.includes('did not match')) {
-    return '指定的分支不存在。请检查分支名称是否正确。';
-  }
-
-  // 无法访问远程仓库
-  if (message.includes('unable to access') || message.includes('Could not resolve host')) {
-    return '无法访问远程仓库。请检查网络连接和仓库地址。';
-  }
-
-  // 默认返回原始消息
   return message;
 }
 
 /**
- * 首次安装 - 克隆仓库到空目录
+ * 从远程下载 ZIP 并解压到目标目录
+ * @param {string} targetDir - 目标安装目录
+ * @param {string} branch - 分支名称
+ * @param {Function} progressCallback - 进度回调
+ */
+async function downloadAndExtract(targetDir, branch, progressCallback) {
+  const tempDir = pathUtils.getTempDir();
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+
+  // 生成临时 ZIP 文件路径
+  const zipFileName = `oua-download-${branch}-${Date.now()}.zip`;
+  const zipPath = path.join(tempDir, zipFileName);
+
+  try {
+    // 1. 下载 ZIP
+    progressCallback({ percent: 0, message: '开始下载...' });
+    const zipUrl = downloadService.getZipUrl(branch);
+    await downloadService.downloadZip(zipUrl, zipPath, progressCallback);
+
+    // 2. 解压到目标目录
+    progressCallback({ percent: 80, message: '正在解压...' });
+    await zipService.extractAndValidateZip(zipPath, targetDir, (p) => {
+      // 将解压进度映射到 80-100 范围
+      const mappedPercent = 80 + Math.round(p.percent * 0.2);
+      progressCallback({ percent: mappedPercent, message: p.message || '正在解压...' });
+    });
+
+    logger.info(`ZIP 下载并解压完成: ${targetDir}`);
+    progressCallback({ percent: 100, message: '完成' });
+  } finally {
+    // 清理临时 ZIP 文件
+    try {
+      if (fs.existsSync(zipPath)) {
+        fs.unlinkSync(zipPath);
+      }
+    } catch (cleanupError) {
+      logger.warn(`清理临时 ZIP 文件失败: ${cleanupError.message}`);
+    }
+  }
+}
+
+/**
+ * 清空目录内容（保留目录本身）
+ * @param {string} dir - 目录路径
+ */
+function clearDirectory(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    return;
+  }
+  const contents = fs.readdirSync(dir);
+  for (const item of contents) {
+    const itemPath = path.join(dir, item);
+    const stat = fs.statSync(itemPath);
+    if (stat.isDirectory()) {
+      fs.rmSync(itemPath, { recursive: true, force: true });
+    } else {
+      fs.unlinkSync(itemPath);
+    }
+  }
+}
+
+/**
+ * 首次安装 - 下载并解压 ZIP 到空目录
  * @param {string} targetDir - 目标目录
  * @param {Function} progressCallback - 进度回调
  * @returns {Promise<boolean>} 是否成功
@@ -122,19 +137,9 @@ function formatError(error) {
 async function firstInstall(targetDir, progressCallback) {
   try {
     logger.info(`首次安装到: ${targetDir}`);
-
-    const result = await gitService.cloneRepo(
-      appConfig.git.repoUrl,
-      targetDir,
-      appConfig.git.defaultBranch,
-      progressCallback
-    );
-
-    if (result) {
-      logger.info('首次安装完成');
-    }
-
-    return result;
+    await downloadAndExtract(targetDir, 'LTS', progressCallback);
+    logger.info('首次安装完成');
+    return true;
   } catch (error) {
     logger.error(`首次安装失败: ${error.message}`);
     const friendlyError = new Error(formatError(error));
@@ -143,37 +148,54 @@ async function firstInstall(targetDir, progressCallback) {
 }
 
 /**
- * 强制覆盖更新 - 删除旧文件并重新克隆
+ * 强制覆盖更新
  * @param {string} targetDir - 目标目录
  * @param {string} branch - 分支名称
  * @param {Function} progressCallback - 进度回调
  * @returns {Promise<boolean>} 是否成功
  */
 async function forceOverwrite(targetDir, branch, progressCallback) {
-  let tempDir = null;
+  const tempDir = pathUtils.getTempDir();
+  const tempExtractDir = path.join(tempDir, `oua-force-overwrite-${Date.now()}`);
 
   try {
     logger.info(`强制覆盖更新: ${targetDir} (分支: ${branch})`);
-    tempDir = path.join(pathUtils.getTempDir(), `oua-force-overwrite-${Date.now()}`);
 
-    logger.info(`克隆到临时目录: ${tempDir}`);
-    await gitService.cloneRepo(appConfig.git.repoUrl, tempDir, branch, progressCallback);
+    // 1. 下载 ZIP 到临时目录
+    const zipFileName = `oua-download-${branch}-${Date.now()}.zip`;
+    const zipPath = path.join(tempDir, zipFileName);
 
-    logger.info('复制新文件...');
+    progressCallback({ percent: 0, message: '开始下载...' });
+    const zipUrl = downloadService.getZipUrl(branch);
+    await downloadService.downloadZip(zipUrl, zipPath, progressCallback);
 
-    // 先删除目标位置的同名旧文件，再复制新文件，最后清理多余旧文件
-    const tempContents = fileUtils.getDirectoryContents(tempDir);
-    const newContentsSet = new Set(tempContents);
+    // 2. 解压到临时提取目录（包含嵌套文件夹）
+    progressCallback({ percent: 50, message: '正在解压...' });
+    const admZip = require('adm-zip');
+    const zip = new admZip(zipPath);
+    zip.extractAllTo(tempExtractDir, true);
 
-    for (const item of tempContents) {
-      const srcPath = path.join(tempDir, item);
-      const destPath = path.join(targetDir, item);
-
-      // 先删除目标位置已有的同名文件/目录
-      if (fs.existsSync(destPath)) {
-        fileUtils.removeDirectory(destPath);
+    // 3. 找到实际内容（GitHub ZIP 会嵌套一层目录，如 OOOInterface-LTS/）
+    const sourceContents = fs.readdirSync(tempExtractDir);
+    let sourceDir = tempExtractDir;
+    if (sourceContents.length === 1) {
+      const singleItem = path.join(tempExtractDir, sourceContents[0]);
+      if (fs.statSync(singleItem).isDirectory()) {
+        sourceDir = singleItem;
       }
+    }
 
+    // 4. 复制到目标目录
+    progressCallback({ percent: 70, message: '正在覆盖文件...' });
+
+    // 先清空目标目录
+    clearDirectory(targetDir);
+
+    // 复制新文件
+    const items = fs.readdirSync(sourceDir);
+    for (const item of items) {
+      const srcPath = path.join(sourceDir, item);
+      const destPath = path.join(targetDir, item);
       if (fs.statSync(srcPath).isDirectory()) {
         fileUtils.copyDirectory(srcPath, destPath);
       } else {
@@ -181,38 +203,27 @@ async function forceOverwrite(targetDir, branch, progressCallback) {
       }
     }
 
-    // 清理目标目录中在新版本不存在的旧文件
-    const oldContents = fileUtils.getDirectoryContents(targetDir);
-    for (const item of oldContents) {
-      if (!newContentsSet.has(item)) {
-        fileUtils.removeDirectory(path.join(targetDir, item));
-      }
-    }
-
-    logger.info('清理临时目录...');
-    fileUtils.removeDirectory(tempDir);
-
     logger.info('强制覆盖更新完成');
+    progressCallback({ percent: 100, message: '完成' });
     return true;
   } catch (error) {
     logger.error(`强制覆盖更新失败: ${error.message}`);
-
+    const friendlyError = new Error(formatError(error));
+    throw friendlyError;
+  } finally {
     // 清理临时目录
     try {
-      if (tempDir && fs.existsSync(tempDir)) {
-        fileUtils.removeDirectory(tempDir);
+      if (fs.existsSync(tempExtractDir)) {
+        fileUtils.removeDirectory(tempExtractDir);
       }
     } catch (cleanupError) {
       logger.warn(`清理临时目录失败: ${cleanupError.message}`);
     }
-
-    const friendlyError = new Error(formatError(error));
-    throw friendlyError;
   }
 }
 
 /**
- * 更新应用 - 拉取远程更新，如果不是 git 仓库则回退到首次安装
+ * 更新应用 - 下载 ZIP 并覆盖安装
  * @param {string} targetDir - 目标目录
  * @param {string} branch - 分支名称
  * @param {Function} progressCallback - 进度回调
@@ -221,60 +232,10 @@ async function forceOverwrite(targetDir, branch, progressCallback) {
 async function updateApp(targetDir, branch, progressCallback) {
   try {
     logger.info(`更新应用: ${targetDir} (分支: ${branch})`);
-
-    const result = await gitService.pullUpdates(targetDir, branch, progressCallback);
-
-    if (result) {
-      logger.info('应用更新完成');
-    }
-
-    return result;
+    await downloadAndExtract(targetDir, branch, progressCallback);
+    logger.info('应用更新完成');
+    return true;
   } catch (error) {
-    // 如果是因为不是 git 仓库或 origin 远程仓库问题，尝试回退到首次安装
-    if (error.message && (
-      error.message.includes('不是有效的 git 仓库') ||
-      error.message.includes("'origin' does not appear") ||
-      error.message.includes('Could not read from remote repository')
-    )) {
-      logger.warn('目标目录不是 git 仓库，尝试回退到首次安装流程');
-      try {
-        // 清空目录后重新安装
-        const fs = require('fs');
-        const path = require('path');
-
-        if (fs.existsSync(targetDir)) {
-          logger.info(`清空目录: ${targetDir}`);
-          const contents = fs.readdirSync(targetDir);
-          for (const item of contents) {
-            const itemPath = path.join(targetDir, item);
-            const stat = fs.statSync(itemPath);
-            if (stat.isDirectory()) {
-              fs.rmSync(itemPath, { recursive: true, force: true });
-            } else {
-              fs.unlinkSync(itemPath);
-            }
-          }
-        }
-
-        logger.info('开始首次安装...');
-        const installResult = await gitService.cloneRepo(
-          appConfig.git.repoUrl,
-          targetDir,
-          branch,
-          progressCallback
-        );
-
-        if (installResult) {
-          logger.info('首次安装完成');
-        }
-
-        return installResult;
-      } catch (installError) {
-        logger.error(`回退到首次安装失败: ${installError.message}`);
-        throw new Error('更新失败且回退安装也失败，请手动删除目录后重新安装');
-      }
-    }
-
     logger.error(`应用更新失败: ${error.message}`);
     const friendlyError = new Error(formatError(error));
     throw friendlyError;
@@ -282,7 +243,7 @@ async function updateApp(targetDir, branch, progressCallback) {
 }
 
 /**
- * 切换分支
+ * 切换分支 - 下载目标分支 ZIP 并覆盖
  * @param {string} targetDir - 目标目录
  * @param {string} branch - 目标分支
  * @param {Function} progressCallback - 进度回调
@@ -291,10 +252,7 @@ async function updateApp(targetDir, branch, progressCallback) {
 async function switchBranch(targetDir, branch, progressCallback) {
   try {
     logger.info(`切换到分支: ${branch}`);
-    gitService.setCurrentBranch(branch);
-
     const result = await updateApp(targetDir, branch, progressCallback);
-
     return result;
   } catch (error) {
     logger.error(`切换分支失败: ${error.message}`);

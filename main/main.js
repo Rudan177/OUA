@@ -8,11 +8,9 @@ const fs = require('fs');
 const logger = require('./utils/logger');
 const pathUtils = require('./utils/pathUtils');
 const configService = require('./services/configService');
-const gitService = require('./services/gitService');
 const fileUtils = require('./utils/fileUtils');
 
 const { registerFileIPC } = require('./ipc/fileIPC');
-const { registerGitIPC } = require('./ipc/gitIPC');
 const { registerUpdateIPC } = require('./ipc/updateIPC');
 const { registerDialogIPC } = require('./ipc/dialogIPC');
 
@@ -121,27 +119,13 @@ ipcMain.handle('get-user-paths', async () => {
   };
 });
 
-// 注册诊断功能
+// 注册诊断功能（简化版，不再依赖 git）
 ipcMain.handle('diagnose-git', async () => {
-  const simpleGit = require('simple-git');
-
   const results = {
-    gitAvailable: false,
-    gitVersion: null,
-    canAccessRepo: false,
     tempDir: pathUtils.getTempDir(),
     tempDirExists: false,
     tempDirWritable: false
   };
-
-  try {
-    const git = simpleGit();
-    const version = await git.version();
-    results.gitAvailable = true;
-    results.gitVersion = version;
-  } catch (error) {
-    results.gitError = error.message;
-  }
 
   try {
     if (!fs.existsSync(results.tempDir)) {
@@ -155,54 +139,6 @@ ipcMain.handle('diagnose-git', async () => {
     results.tempDirWritable = true;
   } catch (error) {
     results.tempDirError = error.message;
-  }
-
-  let testClone;
-
-  try {
-    testClone = path.join(results.tempDir, 'git-test-' + Date.now());
-
-    const proxy = await gitService.getSystemProxy();
-    const envVars = { ...process.env };
-    delete envVars.HTTP_PROXY;
-    delete envVars.http_proxy;
-    delete envVars.HTTPS_PROXY;
-    delete envVars.https_proxy;
-    delete envVars.ALL_PROXY;
-    delete envVars.all_proxy;
-    delete envVars.NO_PROXY;
-    delete envVars.no_proxy;
-    if (proxy) {
-      if (proxy.http) {
-        envVars.HTTP_PROXY = proxy.http;
-        envVars.http_proxy = proxy.http;
-      }
-      if (proxy.https) {
-        envVars.HTTPS_PROXY = proxy.https;
-        envVars.https_proxy = proxy.https;
-      }
-    }
-
-    await new Promise((resolve, reject) => {
-      let timer;
-      timer = setTimeout(() => {
-        timer = null;
-        reject(new Error('克隆测试超时，请检查网络连接'));
-      }, 120000);
-      simpleGit().env(envVars).clone('https://github.com/Rudan177/OOOInterface.git', testClone, ['--depth', '1'])
-        .then(result => { if (timer) { clearTimeout(timer); timer = null; } resolve(result); })
-        .catch(err => { if (timer) { clearTimeout(timer); timer = null; } reject(err); });
-    });
-    fs.rmSync(testClone, { recursive: true });
-    results.canAccessRepo = true;
-  } catch (error) {
-    results.repoAccessError = error.message;
-    // 清理失败的克隆目录
-    try {
-      if (fs.existsSync(testClone)) {
-        fs.rmSync(testClone, { recursive: true });
-      }
-    } catch (e) { /* ignore */ }
   }
 
   return results;
@@ -492,8 +428,7 @@ async function checkAndAutoUpdate() {
     }
 
     const branch = configService.getBranch();
-    const tempDir = pathUtils.getTempDir();
-    const remoteVersion = await versionService.getRemoteVersion(tempDir, branch);
+    const remoteVersion = await versionService.getRemoteVersion(branch);
 
     if (!remoteVersion) {
       logger.info('自动更新跳过：无法获取远程版本');
@@ -530,18 +465,13 @@ app.whenReady().then(() => {
   configService.initConfig();
 
   const savedBranch = configService.getBranch();
-  gitService.setCurrentBranch(savedBranch);
 
   const tempDir = pathUtils.getTempDir();
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
   }
 
-  // 启动时检测 Git 可用性
-  checkGitAvailability();
-
   registerFileIPC();
-  registerGitIPC();
   registerUpdateIPC();
   registerDialogIPC();
 
@@ -569,19 +499,6 @@ app.whenReady().then(() => {
     }
   });
 });
-
-/**
- * 检测 Git 是否可用
- */
-async function checkGitAvailability() {
-  try {
-    const { execSync } = require('child_process');
-    execSync('git --version', { stdio: 'ignore' });
-    logger.info('Git 检测: 可用');
-  } catch (error) {
-    logger.warn('Git 检测: 未安装或不可用。部分功能（首次安装、更新、分支切换）将需要 Git。');
-  }
-}
 
 app.on('window-all-closed', () => {
   if (isRestarting) {

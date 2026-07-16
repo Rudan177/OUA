@@ -120,8 +120,6 @@ function getInstallDir() {
  */
 function setBranch(branch) {
   configData.branch = branch;
-  const gitService = require('./gitService');
-  gitService.setCurrentBranch(branch);
   saveConfig();
 }
 

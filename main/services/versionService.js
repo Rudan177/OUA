@@ -5,8 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const compareVersion = require('../utils/compareVersion');
 const logger = require('../utils/logger');
-const gitService = require('./gitService');
-const appConfig = require('../config/appConfig');
+const networkService = require('./networkService');
 
 /**
  * 从本地目录读取版本号
@@ -32,10 +31,10 @@ function getLocalVersion(installDir) {
       logger.warn('版本文件不存在 (检查了 main/Script/version.js 和 main/version.js)');
       return null;
     }
-    
+
     const content = fs.readFileSync(versionFilePath, 'utf8');
     const match = content.match(/const\s+VERSION\s*=\s*["']([^"']+)["']/);
-    
+
     logger.info(`读取本地版本: ${match ? match[1] : 'null'} (来自: ${path.relative(installDir, versionFilePath)})`);
     return match ? match[1] : null;
   } catch (error) {
@@ -46,13 +45,11 @@ function getLocalVersion(installDir) {
 
 /**
  * 获取远程版本
- * @param {string} tempDir - 临时目录
- * @param {string} branch - 分支名称（可选）
+ * @param {string} branch - 分支名称
  * @returns {Promise<string|null>} 远程版本号或 null
  */
-async function getRemoteVersion(tempDir, branch) {
-  const targetBranch = branch || gitService.getCurrentBranch();
-  return gitService.getRemoteVersion(appConfig.git.repoUrl, targetBranch, tempDir);
+async function getRemoteVersion(branch) {
+  return networkService.getRemoteVersion(branch);
 }
 
 /**
@@ -73,7 +70,7 @@ function compareLocalWithRemote(localVersion, remoteVersion) {
  */
 function getVersionStatus(localVersion, remoteVersion) {
   const comparison = compareLocalWithRemote(localVersion, remoteVersion);
-  
+
   if (comparison > 0) {
     return 'newer';
   } else if (comparison < 0) {
