@@ -577,7 +577,27 @@
         AnNiuJianChaGengXin.disabled = true;
         GengXinZhuangTaiWenBen.textContent = '正在切换到远程模式...';
 
-        const shiJiFenZhi = 'LTS';
+        // 先检测版本：如果本地版本高于远程稳定版，询问是否加入尝鲜版
+        let shiJiFenZhi = 'LTS';
+        try {
+          const BenDiBanBen = await window.electronAPI.update.getLocalVersion(AnZhuangLuJing);
+          const YuanChengBanBenZhi = await window.electronAPI.update.getRemoteVersion('LTS');
+          if (BenDiBanBen && YuanChengBanBenZhi) {
+            const comparison = await window.electronAPI.update.compareVersions(BenDiBanBen, YuanChengBanBenZhi);
+            if (comparison > 0) {
+              const switchToTest = await DialogManager.QueRen(
+                '加入尝鲜版',
+                '当前本地版本高于远程正式版，是否切换到尝鲜版通道？'
+              );
+              if (switchToTest) {
+                shiJiFenZhi = 'test';
+              }
+            }
+          }
+        } catch (e) {
+          // 版本检测失败，默认使用 LTS
+        }
+
         await window.electronAPI.update.setBranch(shiJiFenZhi);
         DangQianFenZhi = shiJiFenZhi;
         GengXinTongDaoAnNiu();
@@ -586,7 +606,8 @@
         await window.electronAPI.update.switchBranch(AnZhuangLuJing, shiJiFenZhi);
 
         GengXinJinDuRongQi.classList.add('YinCang');
-        await DialogManager.TiShi('切换成功', '已切换到远程模式');
+        const fenZhiMingCheng = shiJiFenZhi === 'test' ? '尝鲜版' : '远程';
+        await DialogManager.TiShi('切换成功', `已切换到${fenZhiMingCheng}模式`);
         JianChaGengXin();
       } catch (error) {
         console.error('切换通道失败:', error);
