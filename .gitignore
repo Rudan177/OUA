@@ -2,5 +2,6 @@ node_modules/
 storage/
 temp/
 dist/
+build2/
 *.log
 .DS_Store
