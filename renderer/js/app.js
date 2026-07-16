@@ -33,35 +33,30 @@
           }
         }
       } else {
-        // 安装目录为空，弹出 3 选项对话框
-        const xuanZe = await DialogManager.XuanZhe(
-          '设置安装目录',
-          '尚未设置安装目录，请选择操作方式：',
-          ['远程拉取', '本地导入', '稍后']
-        );
+        // 安装目录为空：先选目录，再选远程/本地
+        const luJing = await window.electronAPI.dialog.selectFolder();
+        if (luJing) {
+          const hasPermission = await window.electronAPI.folder.hasWritePermission(luJing);
+          if (!hasPermission) {
+            await DialogManager.TiShi('权限错误', '没有对该目录的写入权限');
+          } else {
+            const xuanZe = await DialogManager.XuanZhe(
+              '选择安装方式',
+              '请选择安装方式：',
+              ['远程拉取', '本地导入', '取消']
+            );
 
-        if (xuanZe === 0) {
-          // 远程拉取：选择目录后首次安装
-          await UpdatePage.ChuLiGengHuanLuJing();
-        } else if (xuanZe === 1) {
-          // 本地导入：选择目录后弹出 ZIP 文件选择器
-          const luJing = await window.electronAPI.dialog.selectFolder();
-          if (luJing) {
-            const hasPermission = await window.electronAPI.folder.hasWritePermission(luJing);
-            if (!hasPermission) {
-              await DialogManager.TiShi('权限错误', '没有对该目录的写入权限');
-            } else {
+            if (xuanZe === 0) {
               await window.electronAPI.folder.setInstallDir(luJing);
-              const zipLuJing = await window.electronAPI.dialog.selectZipFile();
-              if (zipLuJing) {
-                await UpdatePage.ChuLiBenDiDaoRu(zipLuJing);
-              }
+              await UpdatePage.ChuLiShouCiXuanZe(luJing, 'remote');
+            } else if (xuanZe === 1) {
+              await window.electronAPI.folder.setInstallDir(luJing);
+              await UpdatePage.ChuLiShouCiXuanZe(luJing, 'local');
             }
           }
         }
-        // xuanZe === 2（稍后）不做任何事
 
-        // 如果用户仍然没有选择目录，更新状态文本
+        // 如果仍未设置安装目录，更新状态文本
         const currentDir = await window.electronAPI.folder.getInstallDir();
         if (!currentDir) {
           document.getElementById('GengXin-ZhuangTai-WenBen').textContent = '请先设置安装目录';

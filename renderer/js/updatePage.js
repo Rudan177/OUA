@@ -730,6 +730,34 @@
     });
   }
 
+  /**
+   * 首次安装：目录已选定，根据模式执行后续操作
+   * @param {string} luJing - 已选定的安装目录
+   * @param {'remote'|'local'} moShi - 安装模式
+   */
+  async function ChuLiShouCiXuanZe(luJing, moShi) {
+    AnZhuangLuJing = luJing;
+    GengXinAnZhuangLuJingXianShi();
+
+    if (moShi === 'local') {
+      DangQianFenZhi = 'local';
+      await window.electronAPI.update.setBranch('local');
+      GengXinTongDaoAnNiu();
+      GengXinZhuangTaiWenBen.textContent = '本地模式：可导入 ZIP 压缩包';
+      AnNiuGengXin.classList.add('YinCang');
+
+      const zipLuJing = await window.electronAPI.dialog.selectZipFile();
+      if (zipLuJing) {
+        await ChuLiBenDiDaoRu(zipLuJing);
+      }
+    } else {
+      DangQianFenZhi = 'LTS';
+      await window.electronAPI.update.setBranch('LTS');
+      GengXinTongDaoAnNiu();
+      KaiShiShouCiAnZhuang(luJing);
+    }
+  }
+
   window.UpdatePage = {
     JianChaGengXin,
     KaiShiShouCiAnZhuang,
@@ -737,6 +765,7 @@
     ChuLiGengHuanLuJing,
     ChuLiTuoZhuaDaoRu,
     ChuLiKongMuLu,
-    ChuLiBenDiDaoRu
+    ChuLiBenDiDaoRu,
+    ChuLiShouCiXuanZe
   };
 })();
