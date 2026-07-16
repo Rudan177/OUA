@@ -540,7 +540,7 @@
         GengXinTongDaoAnNiu();
 
         GengXinJinDuRongQi.classList.remove('YinCang');
-        await window.electronAPI.update.switchBranch(AnZhuangLuJing, fenZhi);
+        await MoNiJinDu(() => window.electronAPI.update.switchBranch(AnZhuangLuJing, fenZhi));
 
         GengXinJinDuRongQi.classList.add('YinCang');
         await DialogManager.TiShi('切换成功', `已切换到${fenZhiMingCheng}通道`);
@@ -603,7 +603,7 @@
         GengXinTongDaoAnNiu();
 
         GengXinJinDuRongQi.classList.remove('YinCang');
-        await window.electronAPI.update.switchBranch(AnZhuangLuJing, shiJiFenZhi);
+        await MoNiJinDu(() => window.electronAPI.update.switchBranch(AnZhuangLuJing, shiJiFenZhi));
 
         GengXinJinDuRongQi.classList.add('YinCang');
         const fenZhiMingCheng = shiJiFenZhi === 'test' ? '尝鲜版' : '远程';
