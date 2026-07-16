@@ -7,7 +7,8 @@
   const DuiHuaXiaoXi = document.getElementById('DuiHua-XiaoXi');
   const DuiHuaQueRen = document.getElementById('DuiHua-QueRen');
   const DuiHuaQuXiao = document.getElementById('DuiHua-QuXiao');
-  
+  const DuiHuaDiSan = document.getElementById('DuiHua-DiSan');
+
   let JieJueChengNuo = null;
 
   function XianShiDuiHua(biaoTi, xiaoXi, xuanXiang = {}) {
@@ -21,22 +22,35 @@
 
       DuiHuaBiaoTi.textContent = biaoTi;
       DuiHuaXiaoXi.textContent = xiaoXi;
-      
-      const { XianShiQuXiao = false, QueRenWenBen = '确定', QuXiaoWenBen = '取消' } = xuanXiang;
-      
-      if (XianShiQuXiao) {
+
+      // 三按钮模式：SanAnNiu = [按钮0, 按钮1, 按钮2]
+      // 返回对应索引 0, 1, 2（点击遮罩关闭返回 -1）
+      if (xuanXiang.SanAnNiu && xuanXiang.SanAnNiu.length >= 3) {
+        DuiHuaDiSan.textContent = xuanXiang.SanAnNiu[0];
+        DuiHuaDiSan.classList.remove('YinCang');
+        DuiHuaQuXiao.textContent = xuanXiang.SanAnNiu[1];
         DuiHuaQuXiao.classList.remove('YinCang');
-        DuiHuaQuXiao.textContent = QuXiaoWenBen;
+        DuiHuaQueRen.textContent = xuanXiang.SanAnNiu[2];
       } else {
-        DuiHuaQuXiao.classList.add('YinCang');
+        // 标准双按钮模式
+        const { XianShiQuXiao = false, QueRenWenBen = '确定', QuXiaoWenBen = '取消' } = xuanXiang;
+
+        DuiHuaDiSan.classList.add('YinCang');
+
+        if (XianShiQuXiao) {
+          DuiHuaQuXiao.classList.remove('YinCang');
+          DuiHuaQuXiao.textContent = QuXiaoWenBen;
+        } else {
+          DuiHuaQuXiao.classList.add('YinCang');
+        }
+        DuiHuaQueRen.textContent = QueRenWenBen;
       }
-      DuiHuaQueRen.textContent = QueRenWenBen;
-      
+
       DuiHuaZheZhao.classList.remove('YinCang');
       requestAnimationFrame(() => {
         DuiHuaZheZhao.classList.add('JiHuo');
       });
-      
+
       JieJueChengNuo = resolve;
     });
   }
@@ -63,9 +77,19 @@
     YinCangDuiHua(false);
   });
 
+  DuiHuaDiSan.addEventListener('click', () => {
+    // 三按钮模式返回 0
+    YinCangDuiHua(0);
+  });
+
   DuiHuaZheZhao.addEventListener('click', (e) => {
-    if (e.target === DuiHuaZheZhao && !DuiHuaQuXiao.classList.contains('YinCang')) {
-      YinCangDuiHua(false);
+    if (e.target === DuiHuaZheZhao) {
+      // 三按钮模式下点击遮罩返回 -1
+      if (!DuiHuaDiSan.classList.contains('YinCang')) {
+        YinCangDuiHua(-1);
+      } else if (!DuiHuaQuXiao.classList.contains('YinCang')) {
+        YinCangDuiHua(false);
+      }
     }
   });
 
@@ -76,6 +100,10 @@
     },
     QueRen: function(biaoTi, xiaoXi, xuanXiang = {}) {
       return XianShiDuiHua(biaoTi, xiaoXi, { ...xuanXiang, XianShiQuXiao: true });
+    },
+    /** 三按钮选择对话框，返回 0(左)/1(中)/2(右)/-1(遮罩) */
+    XuanZhe: function(biaoTi, xiaoXi, anNiu = ['选项一', '选项二', '选项三']) {
+      return XianShiDuiHua(biaoTi, xiaoXi, { SanAnNiu: anNiu });
     }
   };
 })();

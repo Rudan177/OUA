@@ -26,23 +26,26 @@
           if (structure === 'valid') {
             await UpdatePage.JianChaGengXin();
           } else if (structure === 'empty') {
-            document.getElementById('GengXin-ZhuangTai-WenBen').textContent = '安装目录为空，请重新安装';
+            // 空目录弹出 3 选项对话框
+            await UpdatePage.ChuLiKongMuLu(baoCunLuJing);
           } else {
             document.getElementById('GengXin-ZhuangTai-WenBen').textContent = '本地文件不完整，请重新安装';
           }
         }
       } else {
-        // 安装目录为空，弹出对话框让用户选择
-        const shouldSelect = await DialogManager.QueRen(
+        // 安装目录为空，弹出 3 选项对话框
+        const xuanZe = await DialogManager.XuanZhe(
           '设置安装目录',
-          '尚未设置安装目录，请选择一个安装目录。',
-          { QueRenWenBen: '选择目录', QuXiaoWenBen: '稍后' }
+          '尚未设置安装目录，请选择操作方式：',
+          ['选择目录并从远程拉取', '选择目录并从本地导入', '稍后']
         );
-        if (shouldSelect) {
-          // 调用更换目录逻辑，让用户选择安装目录
+
+        if (xuanZe === 0 || xuanZe === 1) {
+          // 先选择目录
           await UpdatePage.ChuLiGengHuanLuJing();
         }
-        // 无论用户是否选择了目录，更新状态文本
+
+        // 如果用户仍然没有选择目录，更新状态文本
         const currentDir = await window.electronAPI.folder.getInstallDir();
         if (!currentDir) {
           document.getElementById('GengXin-ZhuangTai-WenBen').textContent = '请先设置安装目录';
