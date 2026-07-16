@@ -1,10 +1,12 @@
 /**
  * Preload 脚本 - 安全桥接主进程和渲染进程
  */
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   isDev: false,
+  /** 从 File 对象获取真实文件系统路径（用于拖放场景） */
+  getFilePath: (file) => webUtils.getPathForFile(file),
   folder: {
     checkStructure: (dirPath) => ipcRenderer.invoke('check-folder-structure', dirPath),
     getMissingFiles: (dirPath) => ipcRenderer.invoke('get-missing-files', dirPath),

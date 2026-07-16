@@ -38,17 +38,17 @@
   }
 
   /**
-   * 检查拖放的文件是否为 ZIP
+   * 获取拖放文件的真实路径（通过 webUtils 可靠获取）
    */
-  function ShiFouWeiZip(ge) {
-    if (ge && ge.length > 0) {
-      const wenJian = ge[0];
-      // 检查文件后缀或 MIME 类型
-      if (wenJian.name && wenJian.name.toLowerCase().endsWith('.zip')) {
-        return wenJian.path || wenJian.name;
-      }
+  async function HuoQuWenJianLuJing(wenJian) {
+    if (!wenJian || wenJian.length === 0) return null;
+    const file = wenJian[0];
+    if (!file.name || !file.name.toLowerCase().endsWith('.zip')) return null;
+    try {
+      return await window.electronAPI.getFilePath(file);
+    } catch {
+      return file.path || null;
     }
-    return null;
   }
 
   // 全局拖放事件
@@ -78,13 +78,12 @@
     }
   });
 
-  document.addEventListener('drop', (e) => {
+  document.addEventListener('drop', async (e) => {
     e.preventDefault();
     e.stopPropagation();
     YinCangTuoZhua();
 
-    const wenJian = e.dataTransfer.files;
-    const zipLuJing = ShiFouWeiZip(wenJian);
+    const zipLuJing = await HuoQuWenJianLuJing(e.dataTransfer.files);
 
     if (zipLuJing && typeof window.UpdatePage !== 'undefined') {
       window.UpdatePage.ChuLiTuoZhuaDaoRu(zipLuJing);
