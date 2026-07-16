@@ -76,7 +76,7 @@
     let caoZuoCuo = null;
 
     // 监听真实进度
-    quXiaoJianTing = window.electronAPI.update.onProgress((data) => {
+    quXiaoJianTing = window.electronAPI.update.onUpdateProgress((data) => {
       zhenShi = { percent: data.percent || 0, message: data.message || '' };
       if (data.percent >= 100) wanCheng = true;
     });
