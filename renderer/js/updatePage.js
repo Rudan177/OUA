@@ -41,6 +41,77 @@
     return DangQianFenZhi === 'local';
   }
 
+  /**
+   * 模拟进度条 - 三阶段模拟：网络检测→匀速→跟随真实进度
+   * @param {Function} caoZuo - 返回 Promise 的实际操作
+   * @param {object} [opts]
+   * @param {number} [opts.jianCeShiJian=1500] - 网络检测阶段总时长(ms)
+   * @param {number} [opts.suDu=5] - 匀速阶段每秒增加的百分比
+   */
+  async function MoNiJinDu(caoZuo, opts = {}) {
+    const { jianCeShiJian = 1500, suDu = 5 } = opts;
+    let quXiaoJianTing = null;
+    let zhenShi = { percent: 0, message: '' };
+    let wanCheng = false;
+    let caoZuoCuo = null;
+
+    // 监听真实进度
+    quXiaoJianTing = window.electronAPI.update.onProgress((data) => {
+      zhenShi = { percent: data.percent || 0, message: data.message || '' };
+      if (data.percent >= 100) wanCheng = true;
+    });
+
+    const caoZuoPromise = caoZuo()
+      .then(() => { wanCheng = true; })
+      .catch((err) => { caoZuoCuo = err; });
+
+    try {
+      let xianShi = 0;
+
+      // 阶段1: 0~10% 网络检测
+      const buChang = jianCeShiJian / 10;
+      for (let i = 1; i <= 10; i++) {
+        await new Promise(r => setTimeout(r, buChang));
+        if (caoZuoCuo) throw caoZuoCuo;
+        xianShi = i;
+        GengXinJinDu.style.width = xianShi + '%';
+        GengXinJinDuWenBen.textContent = `网络检测 ${xianShi}%`;
+      }
+
+      // 阶段2: 10~80% 匀速（即使下载完成也保持此速度）
+      while (xianShi < 80) {
+        await new Promise(r => setTimeout(r, 1000));
+        if (caoZuoCuo) throw caoZuoCuo;
+        xianShi = Math.min(80, xianShi + suDu);
+        GengXinJinDu.style.width = xianShi + '%';
+        GengXinJinDuWenBen.textContent = `下载中 ${xianShi}%`;
+      }
+
+      // 阶段3: 80~100% 跟随真实进度
+      while (xianShi < 100) {
+        await new Promise(r => setTimeout(r, 300));
+        if (caoZuoCuo) throw caoZuoCuo;
+        if (wanCheng) { xianShi = 100; break; }
+
+        // 真实进度 0~100 映射到 80~100 区间
+        const muBiao = 80 + (zhenShi.percent / 100) * 20;
+        if (muBiao > xianShi) {
+          xianShi = Math.min(99, muBiao);
+        }
+        // 若 muBiao ≤ xianShi 则自然降速，不做额外跳动
+
+        GengXinJinDu.style.width = xianShi + '%';
+        GengXinJinDuWenBen.textContent = zhenShi.message || `进度: ${Math.round(xianShi)}%`;
+      }
+
+      await caoZuoPromise;
+      GengXinJinDu.style.width = '100%';
+      GengXinJinDuWenBen.textContent = '完成';
+    } finally {
+      if (quXiaoJianTing) quXiaoJianTing();
+    }
+  }
+
   async function JianChaGengXin() {
     try {
       if (!AnZhuangLuJing) {
@@ -155,10 +226,8 @@
       AnNiuJianChaGengXin.disabled = true;
       AnNiuGengHuanLuJing.disabled = true;
 
-      await window.electronAPI.update.firstInstall(muBiaoLuJing);
+      await MoNiJinDu(() => window.electronAPI.update.firstInstall(muBiaoLuJing));
 
-      GengXinJinDu.style.width = '100%';
-      GengXinJinDuWenBen.textContent = '安装完成';
       GengXinZhuangTaiWenBen.textContent = '安装完成，正在加载...';
 
       setTimeout(() => {
@@ -181,10 +250,8 @@
       AnNiuJianChaGengXin.disabled = true;
       AnNiuGengHuanLuJing.disabled = true;
 
-      await window.electronAPI.update.forceOverwrite(muBiaoLuJing, DangQianFenZhi);
+      await MoNiJinDu(() => window.electronAPI.update.forceOverwrite(muBiaoLuJing, DangQianFenZhi));
 
-      GengXinJinDu.style.width = '100%';
-      GengXinJinDuWenBen.textContent = '覆盖安装完成';
       GengXinZhuangTaiWenBen.textContent = '覆盖安装完成，正在加载...';
 
       setTimeout(() => {
@@ -249,10 +316,8 @@
       AnNiuGengXin.classList.add('YinCang');
       AnNiuGengHuanLuJing.disabled = true;
 
-      await window.electronAPI.update.updateApp(AnZhuangLuJing, DangQianFenZhi);
+      await MoNiJinDu(() => window.electronAPI.update.updateApp(AnZhuangLuJing, DangQianFenZhi));
 
-      GengXinJinDu.style.width = '100%';
-      GengXinJinDuWenBen.textContent = '更新完成';
       GengXinZhuangTaiWenBen.textContent = '更新完成，正在重新检测...';
 
       setTimeout(() => {
