@@ -66,7 +66,7 @@ function getDefaultConfig() {
     isFirstRun: true,
     theme: 'system',
     proxy: {
-      autoConfigure: false,
+      autoConfigure: true,
       enabled: false,
       http: '',
       https: ''
@@ -177,7 +177,7 @@ function setProxyConfig(proxyConfig) {
  */
 function getProxyConfig() {
   return configData.proxy || {
-    autoConfigure: false,
+    autoConfigure: true,
     enabled: false,
     http: '',
     https: ''

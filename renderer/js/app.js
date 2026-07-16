@@ -34,6 +34,7 @@
         }
       } else {
         // 安装目录为空：先选目录，再选远程/本地
+        await DialogManager.TiShi('选择安装目录', '请选择或新建一个空目录作为 OOOInterface 的安装位置。');
         const luJing = await window.electronAPI.dialog.selectFolder();
         if (luJing) {
           const hasPermission = await window.electronAPI.folder.hasWritePermission(luJing);

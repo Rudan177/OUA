@@ -270,6 +270,7 @@
 
   async function ChuLiGengHuanLuJing() {
     try {
+      await DialogManager.TiShi('选择安装目录', '请选择 OOOInterface 的安装目录。');
       const luJing = await window.electronAPI.dialog.selectFolder();
 
       if (!luJing) return;
@@ -342,6 +343,7 @@
       KaiShiShouCiAnZhuang(luJing);
     } else if (xuanZe === 1) {
       // 从本地导入
+      await DialogManager.TiShi('导入 ZIP 文件', '请选择需要导入的 ZIP 压缩包。');
       const zipLuJing = await window.electronAPI.dialog.selectZipFile();
       if (!zipLuJing) return;
       await window.electronAPI.folder.setInstallDir(luJing);
@@ -570,6 +572,7 @@
     if (!zipLuJing) return;
 
     if (!AnZhuangLuJing) {
+      await DialogManager.TiShi('选择安装目录', '请选择 OOOInterface 的安装目录。');
       const luJing = await window.electronAPI.dialog.selectFolder();
       if (!luJing) return;
       AnZhuangLuJing = luJing;
@@ -641,6 +644,7 @@
     }
 
     try {
+      await DialogManager.TiShi('导入 ZIP 文件', '请选择需要导入的 ZIP 压缩包。');
       const zipLuJing = await window.electronAPI.dialog.selectZipFile();
       if (zipLuJing) {
         await ChuLiBenDiDaoRu(zipLuJing);
@@ -746,6 +750,7 @@
       GengXinZhuangTaiWenBen.textContent = '本地模式：可导入 ZIP 压缩包';
       AnNiuGengXin.classList.add('YinCang');
 
+      await DialogManager.TiShi('导入 ZIP 文件', '请选择需要导入的 ZIP 压缩包。');
       const zipLuJing = await window.electronAPI.dialog.selectZipFile();
       if (zipLuJing) {
         await ChuLiBenDiDaoRu(zipLuJing);
