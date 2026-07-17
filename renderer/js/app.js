@@ -16,6 +16,10 @@
       const baoCunLuJing = await window.electronAPI.folder.getInstallDir();
       const savedBranch = await window.electronAPI.update.getBranch();
 
+      // 无条件把已保存的安装目录同步到 updatePage 模块，避免 Ctrl+R 刷新后
+      // 闭包变量 AnZhuangLuJing 仍为 null、导入流程误判为"未设置"的问题
+      UpdatePage.ChuShiHuaAnZhuangLuJing(baoCunLuJing);
+
       if (baoCunLuJing) {
         if (savedBranch === 'local') {
           // 本地模式不检查远程更新
