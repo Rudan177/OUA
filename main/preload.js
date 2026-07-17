@@ -56,13 +56,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   app: {
     reset: () => ipcRenderer.invoke('app-reset'),
     restart: () => ipcRenderer.invoke('app-restart'),
-    uninstall: () => ipcRenderer.invoke('app-uninstall')
+    uninstall: () => ipcRenderer.invoke('app-uninstall'),
+    hideWindow: () => ipcRenderer.invoke('window-hide')
   },
   settings: {
     getProxyConfig: () => ipcRenderer.invoke('get-proxy-config'),
     setProxyConfig: (config) => ipcRenderer.invoke('set-proxy-config', config),
     getStartupConfig: () => ipcRenderer.invoke('get-startup-config'),
-    setStartupConfig: (config) => ipcRenderer.invoke('set-startup-config', config)
+    setStartupConfig: (config) => ipcRenderer.invoke('set-startup-config', config),
+    getHotkeyConfig: () => ipcRenderer.invoke('get-hotkey-config'),
+    setHotkeyConfig: (config) => ipcRenderer.invoke('set-hotkey-config', config)
   },
   appConfig: {
     getAppInfo: () => ipcRenderer.invoke('get-app-config')

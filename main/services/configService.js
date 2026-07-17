@@ -75,6 +75,10 @@ function getDefaultConfig() {
       launchOnBoot: false,
       minimizeToTray: false,
       autoUpdate: false
+    },
+    hotkey: {
+      enabled: false,
+      openWindow: 'Ctrl+Shift+O'
     }
   };
 }
@@ -218,6 +222,30 @@ function getStartupConfig() {
   };
 }
 
+/**
+ * 设置热键配置
+ * @param {object} hotkeyConfig - 热键配置对象 { enabled: boolean, openWindow: string }
+ */
+function setHotkeyConfig(hotkeyConfig) {
+  configData.hotkey = {
+    enabled: hotkeyConfig.enabled || false,
+    openWindow: hotkeyConfig.openWindow || 'Ctrl+Shift+O'
+  };
+  saveConfig();
+  logger.info('热键配置已保存');
+}
+
+/**
+ * 获取热键配置
+ * @returns {object} 热键配置对象
+ */
+function getHotkeyConfig() {
+  return configData.hotkey || {
+    enabled: false,
+    openWindow: 'Ctrl+Shift+O'
+  };
+}
+
 module.exports = {
   initConfig,
   loadConfig,
@@ -234,5 +262,7 @@ module.exports = {
   getProxyConfig,
   isConfigComplete,
   setStartupConfig,
-  getStartupConfig
+  getStartupConfig,
+  setHotkeyConfig,
+  getHotkeyConfig
 };

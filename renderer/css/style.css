@@ -35,6 +35,19 @@
   box-sizing: border-box;
 }
 
+/* 全局焦点样式：替代浏览器默认橙色焦点环
+   - 鼠标点击按钮/链接等：不显示轮廓（focus 但非 focus-visible）
+   - 键盘 Tab 导航：显示主色调焦点环（focus-visible）
+   - input/textarea 等需要输入的元素：鼠标点击后仍显示焦点环 */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 html, body {
   height: 100%;
   overflow: hidden;
@@ -753,7 +766,36 @@ body {
   justify-content: center;
 }
 
-/* 滚动条 */
+/* 滚动条 — Aa/Bb 卡片内容区：视觉隐藏，保留滚动功能（Cc 不受影响） */
+.Aa-MianBan .KaPian-ZhuTi,
+.Bb-MianBan .KaPian-ZhuTi {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.Aa-MianBan .KaPian-ZhuTi::-webkit-scrollbar,
+.Bb-MianBan .KaPian-ZhuTi::-webkit-scrollbar {
+  width: 0;
+  display: none; /* Chrome/Safari/Edge/Electron */
+}
+
+.Aa-MianBan .KaPian-ZhuTi::-webkit-scrollbar-track,
+.Bb-MianBan .KaPian-ZhuTi::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.Aa-MianBan .KaPian-ZhuTi::-webkit-scrollbar-thumb,
+.Bb-MianBan .KaPian-ZhuTi::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 0;
+}
+
+.Aa-MianBan .KaPian-ZhuTi::-webkit-scrollbar-thumb:hover,
+.Bb-MianBan .KaPian-ZhuTi::-webkit-scrollbar-thumb:hover {
+  background: transparent;
+}
+
+/* Cc 等其他 KaPian-ZhuTi 保留默认滚动条 */
 .KaPian-ZhuTi::-webkit-scrollbar {
   width: 6px;
 }

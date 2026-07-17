@@ -23,9 +23,19 @@
   const KaiGuanKaiJiQiDong = document.getElementById('KaiGuan-KaiJiQiDong');
   const KaiGuanZuiXiaoHuaTuoPan = document.getElementById('KaiGuan-ZuiXiaoHua-TuoPan');
   const KaiGuanZiDongGengXin = document.getElementById('KaiGuan-ZiDong-GengXin');
+  const KaiGuanReJian = document.getElementById('KaiGuan-ReJian');
+  const ReJianPeiZhiRongQi = document.getElementById('ReJian-PeiZhi-RongQi');
+  const ReJianXianShi = document.getElementById('ReJian-XianShi');
+  const AnNiuReJianZiDingYi = document.getElementById('AnNiu-ReJian-ZiDingYi');
+  const AnNiuReJianChongZhi = document.getElementById('AnNiu-ReJian-ChongZhi');
 
   let AnZhuangLuJing = null;
   let DangQianFenZhi = 'LTS';
+  let ReJianZhuangTai = {
+    enabled: false,
+    openWindow: 'Ctrl+Shift+O'
+  };
+  let ReJianLuRuZhong = false;
 
   /**
    * 初始化安装目录：把已保存的安装目录同步到闭包变量与 UI
@@ -1147,6 +1157,20 @@
       KaiGuanZiDongGengXin.checked = startupConfig.autoUpdate || false;
     }
 
+    // 加载热键配置
+    const hotkeyConfig = await window.electronAPI.settings.getHotkeyConfig();
+    ReJianZhuangTai = {
+      enabled: hotkeyConfig.enabled || false,
+      openWindow: hotkeyConfig.openWindow || 'Ctrl+Shift+O'
+    };
+    if (KaiGuanReJian) {
+      KaiGuanReJian.checked = ReJianZhuangTai.enabled;
+    }
+    GengXinReJianXianShi();
+    GengXinReJianPeiZhiKeJian();
+    // 根据最小化到托盘状态决定整个热键卡片是否显示
+    await GengXinReJianKaPianKeJian();
+
     // 恢复保存的分支状态
     const savedBranch = await window.electronAPI.update.getBranch();
     if (savedBranch === 'local') {
@@ -1177,10 +1201,225 @@
   }
   if (KaiGuanZuiXiaoHuaTuoPan) {
     KaiGuanZuiXiaoHuaTuoPan.addEventListener('change', Baocunqidongshezhi);
+    // 最小化到托盘状态变化时，联动显示/隐藏整个热键卡片
+    KaiGuanZuiXiaoHuaTuoPan.addEventListener('change', () => {
+      GengXinReJianKaPianKeJian();
+    });
   }
   if (KaiGuanZiDongGengXin) {
     KaiGuanZiDongGengXin.addEventListener('change', Baocunqidongshezhi);
   }
+
+  // =============================================
+  // 热键功能：开关、ESC 关闭窗口、自定义打开窗口热键
+  // =============================================
+
+  /**
+   * 更新"打开窗口"热键的显示文本
+   */
+  function GengXinReJianXianShi() {
+    if (ReJianXianShi) {
+      ReJianXianShi.textContent = ReJianZhuangTai.openWindow || 'Ctrl+Shift+O';
+    }
+  }
+
+  /**
+   * 根据开关状态展开/收起热键子配置区（CSS max-height 过渡动画）
+   */
+  function GengXinReJianPeiZhiKeJian() {
+    if (!ReJianPeiZhiRongQi) return;
+    if (ReJianZhuangTai.enabled) {
+      ReJianPeiZhiRongQi.classList.add('ZhanKai');
+    } else {
+      ReJianPeiZhiRongQi.classList.remove('ZhanKai');
+      // 关闭时若正在录入，取消录入状态
+      if (ReJianLuRuZhong) {
+        QuXiaoLuRu();
+      }
+    }
+  }
+
+  /**
+   * 根据最小化到托盘的状态显示/隐藏整个热键卡片
+   * 不开启最小化到托盘时整个热键开关都不显示，并自动关闭热键避免脏状态
+   */
+  async function GengXinReJianKaPianKeJian() {
+    const reJianLieBiao = document.getElementById('ReJian-LieBiao');
+    if (!reJianLieBiao) return;
+
+    const tuoPanKaiQi = KaiGuanZuiXiaoHuaTuoPan && KaiGuanZuiXiaoHuaTuoPan.checked;
+
+    if (tuoPanKaiQi) {
+      reJianLieBiao.classList.remove('YinCang');
+    } else {
+      reJianLieBiao.classList.add('YinCang');
+      // 托盘关闭后自动关闭热键开关，避免 ESC 隐藏后无法唤起
+      if (KaiGuanReJian && KaiGuanReJian.checked) {
+        KaiGuanReJian.checked = false;
+        ReJianZhuangTai.enabled = false;
+        GengXinReJianPeiZhiKeJian();
+        await BaoCunReJianSheZhi();
+      }
+    }
+  }
+
+  /**
+   * 保存热键配置到主进程（主进程会重新注册全局快捷键）
+   */
+  async function BaoCunReJianSheZhi() {
+    await window.electronAPI.settings.setHotkeyConfig({
+      enabled: ReJianZhuangTai.enabled,
+      openWindow: ReJianZhuangTai.openWindow
+    });
+  }
+
+  /**
+   * 热键开关切换
+   */
+  if (KaiGuanReJian) {
+    KaiGuanReJian.addEventListener('change', async () => {
+      ReJianZhuangTai.enabled = KaiGuanReJian.checked;
+      GengXinReJianPeiZhiKeJian();
+      await BaoCunReJianSheZhi();
+    });
+  }
+
+  /**
+   * 把 KeyboardEvent 转换为 Electron Accelerator 字符串
+   * 仅接受带至少一个修饰键（Ctrl/Alt/Shift/Meta）的组合，否则返回 null
+   */
+  function ZhuanHuanJianZuHe(e) {
+    const xiuShiJian = [];
+    if (e.ctrlKey) xiuShiJian.push('Ctrl');
+    if (e.altKey) xiuShiJian.push('Alt');
+    if (e.shiftKey) xiuShiJian.push('Shift');
+    if (e.metaKey) xiuShiJian.push('Super');
+
+    if (xiuShiJian.length === 0) return null;
+
+    // 忽略单独按修饰键的情况
+    const keyCode = e.key;
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(keyCode)) return null;
+
+    // 数字/字母/功能键
+    let anJian;
+    if (/^[a-zA-Z]$/.test(keyCode)) {
+      anJian = keyCode.toUpperCase();
+    } else if (/^[0-9]$/.test(keyCode)) {
+      anJian = keyCode;
+    } else if (/^F([1-9]|1[0-2])$/.test(keyCode)) {
+      anJian = keyCode;
+    } else {
+      // 其他特殊键不支持
+      return null;
+    }
+
+    return [...xiuShiJian, anJian].join('+');
+  }
+
+  /**
+   * 进入自定义热键录入模式
+   * 按钮文字"改" → "取消"，kbd 高亮闪烁并显示"按下新组合…"
+   */
+  function KaiShiLuRu() {
+    ReJianLuRuZhong = true;
+    if (AnNiuReJianZiDingYi) {
+      AnNiuReJianZiDingYi.classList.add('LuRuZhong');
+      AnNiuReJianZiDingYi.textContent = '取消';
+    }
+    if (ReJianXianShi) {
+      ReJianXianShi.classList.add('LuRuZhong');
+      ReJianXianShi.textContent = '按下新组合…';
+    }
+  }
+
+  /**
+   * 退出录入模式
+   * 按钮文字恢复"改"，kbd 恢复显示当前热键
+   */
+  function QuXiaoLuRu() {
+    ReJianLuRuZhong = false;
+    if (AnNiuReJianZiDingYi) {
+      AnNiuReJianZiDingYi.classList.remove('LuRuZhong');
+      AnNiuReJianZiDingYi.textContent = '改';
+    }
+    if (ReJianXianShi) {
+      ReJianXianShi.classList.remove('LuRuZhong');
+      ReJianXianShi.textContent = ReJianZhuangTai.openWindow || 'Ctrl+Shift+O';
+    }
+  }
+
+  if (AnNiuReJianZiDingYi) {
+    AnNiuReJianZiDingYi.addEventListener('click', () => {
+      if (ReJianLuRuZhong) {
+        QuXiaoLuRu();
+      } else {
+        KaiShiLuRu();
+      }
+    });
+  }
+
+  if (AnNiuReJianChongZhi) {
+    AnNiuReJianChongZhi.addEventListener('click', async () => {
+      ReJianZhuangTai.openWindow = 'Ctrl+Shift+O';
+      GengXinReJianXianShi();
+      await BaoCunReJianSheZhi();
+      if (ReJianLuRuZhong) QuXiaoLuRu();
+    });
+  }
+
+  /**
+   * 全局键盘监听：
+   * 1. 录入模式下：捕获组合键，保存并退出录入
+   * 2. 非录入模式下：热键功能启用且窗口可见时，按 ESC 隐藏窗口
+   *    （对话框/设置弹窗打开时优先让它们处理 ESC）
+   */
+  document.addEventListener('keydown', async (e) => {
+    // 1. 录入模式
+    if (ReJianLuRuZhong) {
+      e.preventDefault();
+      e.stopPropagation();
+      // 按下 ESC 取消录入
+      if (e.key === 'Escape') {
+        QuXiaoLuRu();
+        return;
+      }
+      const zuHe = ZhuanHuanJianZuHe(e);
+      if (zuHe) {
+        ReJianZhuangTai.openWindow = zuHe;
+        GengXinReJianXianShi();
+        await BaoCunReJianSheZhi();
+        QuXiaoLuRu();
+      }
+      return;
+    }
+
+    // 2. ESC 关闭窗口（热键功能启用且开启"最小化到托盘"时）
+    if (e.key === 'Escape' && ReJianZhuangTai.enabled) {
+      // 对话框打开时由 dialog.js 处理
+      const duiHuaZheZhao = document.getElementById('DuiHua-ZheZhao');
+      if (duiHuaZheZhao && duiHuaZheZhao.classList.contains('JiHuo')) return;
+      // 设置弹窗打开时由 settingsPage.js 处理
+      const sheZhiZheZhao = document.getElementById('SheZhi-ZheZhao');
+      if (sheZhiZheZhao && sheZhiZheZhao.classList.contains('JiHuo')) return;
+      // 人机验证遮罩打开时不处理
+      const renJiZheZhao = document.querySelector('.RenJi-YanZheng-ZheZhao');
+      if (renJiZheZhao && renJiZheZhao.classList.contains('JiHuo')) return;
+      // 设置面板（Aa 内嵌）打开时优先关闭面板
+      const sheDingMianBan = document.getElementById('SheDing-MianBan');
+      if (sheDingMianBan && !sheDingMianBan.classList.contains('YinCang')) {
+        sheDingMianBan.classList.add('YinCang');
+        return;
+      }
+
+      // ESC 隐藏窗口依赖"最小化到托盘"：未开启时 ESC 不响应
+      // （避免窗口隐藏后无法通过托盘唤起，仅全局热键可唤起不够直观）
+      if (!KaiGuanZuiXiaoHuaTuoPan || !KaiGuanZuiXiaoHuaTuoPan.checked) return;
+
+      e.preventDefault();
+      await window.electronAPI.app.hideWindow();
+    }
+  });
 
   Jiazaiqidongshezhi();
 

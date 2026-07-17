@@ -1,7 +1,7 @@
 /**
  * Electron 主进程入口
  */
-const { app, BrowserWindow, ipcMain, nativeTheme, Tray, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, Tray, Menu, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -59,6 +59,7 @@ function createWindow(silentMode = false) {
       preload: path.join(__dirname, 'preload.js')
     },
     titleBarStyle: 'hiddenInset',
+    autoHideMenuBar: true,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a1a' : '#f5f5f5',
     show: false
   });
@@ -369,6 +370,79 @@ ipcMain.handle('get-app-config', async () => {
   };
 });
 
+// =============================================
+// 全局热键：注册/注销 + 配置 IPC
+// =============================================
+
+/**
+ * 注册打开窗口的全局快捷键
+ */
+function zhuCeQuanJuReJian() {
+  const hotkeyConfig = configService.getHotkeyConfig();
+  // 先注销已注册的快捷键
+  zhuXiaoQuanJuReJian();
+
+  if (!hotkeyConfig.enabled) {
+    logger.info('热键功能未启用，跳过注册');
+    return;
+  }
+
+  const accelerator = hotkeyConfig.openWindow;
+  if (!accelerator) {
+    logger.warn('热键配置为空，跳过注册');
+    return;
+  }
+
+  try {
+    const success = globalShortcut.register(accelerator, () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+          // 已显示时按热键则隐藏（与 ESC 行为一致）
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    });
+
+    if (success) {
+      logger.info(`全局热键已注册: ${accelerator}`);
+    } else {
+      logger.error(`全局热键注册失败: ${accelerator}（可能被其他应用占用）`);
+    }
+  } catch (error) {
+    logger.error(`全局热键注册异常: ${error.message}`);
+  }
+}
+
+/**
+ * 注销所有已注册的全局快捷键
+ */
+function zhuXiaoQuanJuReJian() {
+  globalShortcut.unregisterAll();
+}
+
+// 注册热键配置 IPC
+ipcMain.handle('get-hotkey-config', async () => {
+  return configService.getHotkeyConfig();
+});
+
+ipcMain.handle('set-hotkey-config', async (event, hotkeyConfig) => {
+  configService.setHotkeyConfig(hotkeyConfig);
+  // 配置变更后立即重新注册
+  zhuCeQuanJuReJian();
+  return true;
+});
+
+// 注册窗口隐藏 IPC（ESC 关闭窗口用，避免触发 close 事件导致退出）
+ipcMain.handle('window-hide', async () => {
+  if (mainWindow) {
+    mainWindow.hide();
+  }
+  return true;
+});
+
 function createTray() {
   const iconPath = path.join(__dirname, '..', 'renderer', 'assets', 'icons', 'logo.png');
   if (fs.existsSync(iconPath)) {
@@ -481,6 +555,9 @@ app.whenReady().then(() => {
   createWindow(silentMode);
   createTray();
 
+  // 注册全局热键（打开窗口）
+  zhuCeQuanJuReJian();
+
   // 自动更新检查
   if (startupConfig.autoUpdate) {
     setTimeout(() => {
@@ -511,6 +588,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  zhuXiaoQuanJuReJian();
   logger.info('应用退出');
 });
 
