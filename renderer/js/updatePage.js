@@ -187,12 +187,20 @@
       let YuanChengBanBenZhi = null;
 
       try {
-        YuanChengBanBenZhi = await window.electronAPI.update.getRemoteVersion(DangQianFenZhi);
+        // 添加 5 秒超时，防止网络不可用时长时间阻塞（最多等待 5s 而不是 30s）
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('获取远程版本超时')), 5000)
+        );
+        YuanChengBanBenZhi = await Promise.race([
+          window.electronAPI.update.getRemoteVersion(DangQianFenZhi),
+          timeoutPromise
+        ]);
         YuanChengBanBen.textContent = YuanChengBanBenZhi || '未找到远程版本';
       } catch (remoteError) {
         console.error('获取远程版本失败:', remoteError);
         YuanChengBanBen.textContent = '获取失败';
-        throw remoteError;
+        // 不重新抛出错误，让 UI 使用已有的本地版本信息展示友好提示
+        // 后续通过 comparison 判断 null 值展示"无法获取远程版本"
       }
 
       if (BenDiBanBen && YuanChengBanBenZhi) {
@@ -581,55 +589,127 @@
         return;
       }
 
+      // === 第一步：立即切换前端按钮到远程模式，不等待检测 ===
+      // 先让用户看到"远程"按钮高亮、子分支行出现，消除卡顿感
+      DangQianFenZhi = 'LTS';
+      GengXinTongDaoAnNiu();
+      GengXinZhuangTaiWenBen.textContent = '正在检测远程版本...';
+
       if (!AnZhuangLuJing) {
-        // 无安装目录时直接切换模式，不切分支
-        DangQianFenZhi = 'LTS';
+        // 无安装目录时已在上面切好 UI，直接持久化并返回
         await window.electronAPI.update.setBranch('LTS');
-        GengXinTongDaoAnNiu();
-        GengXinZhuangTaiWenBen.textContent = '远程模式';
         return;
       }
+
+      // === 第二步：创建检测弹窗 ===
+      let jianCeQuXiao = false;   // 用户主动取消标记
+      let jianCeWanCheng = false; // 检测已全部完成（防止关闭动画期间误触遮罩回退）
+      let BenDiBanBen = null;
+      let YuanChengLTS = null;
+      let YuanChengMain = null;
+
+      const jianCeZheZhao = document.createElement('div');
+      jianCeZheZhao.className = 'JianCe-ZheZhao';
+      jianCeZheZhao.innerHTML = `
+        <div class="JianCe-DuiHua">
+          <div class="DuiHua-TouBu">
+            <div class="DuiHua-BiaoTi">检测远程版本</div>
+          </div>
+          <div class="DuiHua-ZhuTi">
+            <div class="DuiHua-XiaoXi" id="jianCe-zhuangTai">正在检测远程版本号...</div>
+          </div>
+          <div class="DuiHua-DiBu" style="justify-content:center;border-top:none">
+            <button class="AnNiu AnNiu-Fu" id="jianCe-quxiao" style="min-width:100px">取消</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(jianCeZheZhao);
+      requestAnimationFrame(() => jianCeZheZhao.classList.add('JiHuo'));
+
+      const quXiaoJianCe = () => {
+        if (jianCeQuXiao || jianCeWanCheng) return; // 防止重复触发或检测完成后误触
+        jianCeQuXiao = true;
+        document.removeEventListener('keydown', jianCeEscHandler);
+        jianCeZheZhao.classList.remove('JiHuo');
+        setTimeout(() => {
+          if (jianCeZheZhao.parentNode) document.body.removeChild(jianCeZheZhao);
+        }, 350);
+        // 回退到本地模式
+        DangQianFenZhi = 'local';
+        window.electronAPI.update.setBranch('local');
+        GengXinTongDaoAnNiu();
+        GengXinZhuangTaiWenBen.textContent = '已切换回本地模式';
+        AnNiuGengXin.classList.add('YinCang');
+      };
+
+      jianCeZheZhao.addEventListener('click', (e) => {
+        if (e.target === jianCeZheZhao) quXiaoJianCe();
+      });
+      document.getElementById('jianCe-quxiao').addEventListener('click', quXiaoJianCe);
+      const jianCeEscHandler = (e) => {
+        if (e.key === 'Escape' && !jianCeQuXiao) quXiaoJianCe();
+      };
+      document.addEventListener('keydown', jianCeEscHandler);
+
+      // === 第三步：后台检测版本（依次获取，每一步可取消） ===
+      const taiEl = document.getElementById('jianCe-zhuangTai');
+
+      try {
+        taiEl.textContent = '正在获取本地版本号...';
+        BenDiBanBen = await window.electronAPI.update.getLocalVersion(AnZhuangLuJing);
+
+        if (jianCeQuXiao) return;
+
+        taiEl.textContent = '正在获取长期支持版版本号...';
+        YuanChengLTS = await window.electronAPI.update.getRemoteVersion('LTS');
+
+        if (jianCeQuXiao) return;
+
+        taiEl.textContent = '正在获取正式版版本号...';
+        YuanChengMain = await window.electronAPI.update.getRemoteVersion('main');
+
+        if (jianCeQuXiao) return;
+      } catch (e) {
+        console.error('版本检测异常:', e);
+      }
+
+      if (jianCeQuXiao) return;
+
+      // === 第四步：检测完成，关闭弹窗 ===
+      jianCeWanCheng = true;
+      document.removeEventListener('keydown', jianCeEscHandler);
+      jianCeZheZhao.classList.remove('JiHuo');
+      setTimeout(() => {
+        if (jianCeZheZhao.parentNode) document.body.removeChild(jianCeZheZhao);
+      }, 350);
 
       // 智能选择最接近本地版本的远程分支，避免本地高版本被远程低版本覆盖：
       //   本地版本 < LTS          → 切到 LTS
       //   LTS <= 本地版本 < main  → 切到 main
       //   本地版本 >= main        → 切到 test（尝鲜版）
-      // 边界：等于时按"更高档"处理（>= main 切 test、>= LTS 切 main），避免可能的降级
-      // 版本比较依赖 main/utils/compareVersion.js 的 B/R 语义修正
-      let shiJiFenZhi = null; // null 表示尚未决定
+      let shiJiFenZhi = null;
 
-      try {
-        const BenDiBanBen = await window.electronAPI.update.getLocalVersion(AnZhuangLuJing);
-        const YuanChengLTS = await window.electronAPI.update.getRemoteVersion('LTS');
-        const YuanChengMain = await window.electronAPI.update.getRemoteVersion('main');
+      if (!BenDiBanBen) {
+        await DialogManager.TiShi('版本检测失败', '无法读取本地版本号，请手动选择要切换的远程分支。');
+      } else if (!YuanChengLTS || !YuanChengMain) {
+        const queShi = [];
+        if (!YuanChengLTS) queShi.push('长期支持版');
+        if (!YuanChengMain) queShi.push('正式版');
+        await DialogManager.TiShi(
+          '远程版本获取失败',
+          `无法获取 ${queShi.join('、')} 的远程版本号（可能是网络或代理问题）。\n\n请手动选择要切换的分支。`
+        );
+      } else {
+        const cmpLTS = await window.electronAPI.update.compareVersions(BenDiBanBen, YuanChengLTS);
+        const cmpMain = await window.electronAPI.update.compareVersions(BenDiBanBen, YuanChengMain);
 
-        if (!BenDiBanBen) {
-          // 本地版本读取失败：让用户手动选择，不假装检测过
-          await DialogManager.TiShi('版本检测失败', '无法读取本地版本号，请手动选择要切换的远程分支。');
-        } else if (!YuanChengLTS || !YuanChengMain) {
-          // 远程版本拉取失败：明确告知用户哪个分支拉不到，让用户手动选择
-          const queShi = [];
-          if (!YuanChengLTS) queShi.push('长期支持版');
-          if (!YuanChengMain) queShi.push('正式版');
-          await DialogManager.TiShi(
-            '远程版本获取失败',
-            `无法获取 ${queShi.join('、')} 的远程版本号（可能是网络或代理问题）。\n\n请手动选择要切换的分支。`
-          );
+        if (cmpMain >= 0) {
+          shiJiFenZhi = 'test';
+        } else if (cmpLTS >= 0) {
+          shiJiFenZhi = 'main';
         } else {
-          // 三个版本都拿到，做智能判定
-          const cmpLTS = await window.electronAPI.update.compareVersions(BenDiBanBen, YuanChengLTS);
-          const cmpMain = await window.electronAPI.update.compareVersions(BenDiBanBen, YuanChengMain);
-
-          if (cmpMain >= 0) {
-            shiJiFenZhi = 'test';
-          } else if (cmpLTS >= 0) {
-            shiJiFenZhi = 'main';
-          } else {
-            shiJiFenZhi = 'LTS';
-          }
+          shiJiFenZhi = 'LTS';
         }
-      } catch (e) {
-        await DialogManager.TiShi('版本检测异常', '检测过程中发生异常：' + (e.message || e) + '\n\n请手动选择要切换的分支。');
       }
 
       // 检测失败或异常时，让用户手动选择分支（三按钮）
@@ -646,10 +726,20 @@
         } else if (xuanZe === 2) {
           shiJiFenZhi = 'test';
         } else {
-          // 用户点击遮罩关闭（-1）
+          // 用户取消手动选择，回退到本地
+          DangQianFenZhi = 'local';
+          await window.electronAPI.update.setBranch('local');
+          GengXinTongDaoAnNiu();
+          GengXinZhuangTaiWenBen.textContent = '已切换回本地模式';
+          AnNiuGengXin.classList.add('YinCang');
           return;
         }
       }
+
+      // 更新 UI 为实际选中的分支
+      DangQianFenZhi = shiJiFenZhi;
+      GengXinTongDaoAnNiu();
+      GengXinZhuangTaiWenBen.textContent = '远程模式';
 
       const fenZhiMingCheng = shiJiFenZhi === 'test' ? '尝鲜版' : shiJiFenZhi === 'main' ? '正式版' : '长期支持版';
 
@@ -662,7 +752,7 @@
 
       try {
         AnNiuJianChaGengXin.disabled = true;
-        GengXinZhuangTaiWenBen.textContent = '正在切换到远程模式...';
+        GengXinZhuangTaiWenBen.textContent = `正在切换到${fenZhiMingCheng}...`;
 
         await window.electronAPI.update.setBranch(shiJiFenZhi);
         DangQianFenZhi = shiJiFenZhi;
@@ -1132,7 +1222,7 @@
   const SheDingMianBan = document.getElementById('SheDing-MianBan');
   if (AnNiuSheDing && SheDingMianBan) {
     AnNiuSheDing.addEventListener('click', () => {
-      SheDingMianBan.classList.toggle('YinCang');
+      SheDingMianBan.classList.toggle('JiHuo');
     });
   }
 
@@ -1405,10 +1495,13 @@
       // 人机验证遮罩打开时不处理
       const renJiZheZhao = document.querySelector('.RenJi-YanZheng-ZheZhao');
       if (renJiZheZhao && renJiZheZhao.classList.contains('JiHuo')) return;
+      // 版本检测弹窗打开时不处理（由检测弹窗内部 ESC 处理）
+      const jianCeZheZhao = document.querySelector('.JianCe-ZheZhao');
+      if (jianCeZheZhao && jianCeZheZhao.classList.contains('JiHuo')) return;
       // 设置面板（Aa 内嵌）打开时优先关闭面板
       const sheDingMianBan = document.getElementById('SheDing-MianBan');
-      if (sheDingMianBan && !sheDingMianBan.classList.contains('YinCang')) {
-        sheDingMianBan.classList.add('YinCang');
+      if (sheDingMianBan && sheDingMianBan.classList.contains('JiHuo')) {
+        sheDingMianBan.classList.remove('JiHuo');
         return;
       }
 

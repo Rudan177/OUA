@@ -499,9 +499,24 @@ body {
   transform: rotate(90deg);
 }
 
-/* 设置面板 */
+/* 设置面板 — 平滑进退动画 */
 #SheDing-MianBan {
   margin-top: 16px;
+  opacity: 0;
+  transform: translateY(-10px);
+  max-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#SheDing-MianBan.JiHuo {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 500px;
+  pointer-events: auto;
 }
 
 /* 分隔线 */
@@ -851,6 +866,46 @@ body {
 }
 
 .RenJi-YanZheng-ZheZhao.JiHuo {
+  opacity: 1;
+}
+
+/* ---- 版本检测弹窗 ---- */
+.JianCe-ZheZhao {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(80px) saturate(1.5);
+  -webkit-backdrop-filter: blur(80px) saturate(1.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.JianCe-ZheZhao.JiHuo {
+  opacity: 1;
+}
+
+.JianCe-ZheZhao .JianCe-DuiHua {
+  background: var(--dialog-bg);
+  backdrop-filter: blur(40px) saturate(1.3);
+  -webkit-backdrop-filter: blur(40px) saturate(1.3);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 420px;
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transform: scale(0.95);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  overflow: hidden;
+}
+
+.JianCe-ZheZhao.JiHuo .JianCe-DuiHua {
+  transform: scale(1);
   opacity: 1;
 }
 

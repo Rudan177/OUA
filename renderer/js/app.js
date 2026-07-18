@@ -20,6 +20,17 @@
       // 闭包变量 AnZhuangLuJing 仍为 null、导入流程误判为"未设置"的问题
       UpdatePage.ChuShiHuaAnZhuangLuJing(baoCunLuJing);
 
+      // 无论什么模式，只要有安装目录就先读取并显示本地版本号
+      // 避免 HTML 默认"检测中..."在本地模式/无结构目录等不走 JianChaGengXin 的分支中残留
+      if (baoCunLuJing) {
+        try {
+          const BenDiBanBen = await window.electronAPI.update.getLocalVersion(baoCunLuJing);
+          document.getElementById('DangQian-BanBen').textContent = BenDiBanBen || '未找到本地版本';
+        } catch (e) {
+          console.error('读取本地版本失败:', e);
+        }
+      }
+
       if (baoCunLuJing) {
         if (savedBranch === 'local') {
           // 本地模式不检查远程更新

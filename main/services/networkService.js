@@ -211,8 +211,9 @@ async function getRemoteVersion(branch) {
       'main/version.js'
     ];
 
-    for (const vp of versionPaths) {
-      try {
+    // 并行尝试所有路径，任一成功即返回；全部失败则返回 null
+    const results = await Promise.allSettled(
+      versionPaths.map(async (vp) => {
         const url = new URL(vp, baseUrl);
         logger.info(`尝试获取版本文件: ${url.href}`);
 
@@ -227,12 +228,20 @@ async function getRemoteVersion(branch) {
         if (response.statusCode === 200) {
           const content = response.data.toString('utf8');
           const match = content.match(/const\s+VERSION\s*=\s*["']([^"']+)["']/);
-          logger.info(`获取到远程版本: ${match ? match[1] : 'null'} (来自: ${vp})`);
-          return match ? match[1] : null;
+          if (match) {
+            logger.info(`获取到远程版本: ${match[1]} (来自: ${vp})`);
+            return match[1];
+          }
         }
         logger.info(`版本文件 ${vp} 获取失败: HTTP ${response.statusCode}`);
-      } catch (e) {
-        logger.info(`版本文件 ${vp} 获取失败: ${e.message}`);
+        throw new Error(`HTTP ${response.statusCode}`);
+      })
+    );
+
+    // 遍历结果，返回第一个成功的版本号
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        return result.value;
       }
     }
 
