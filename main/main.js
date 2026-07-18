@@ -60,6 +60,7 @@ function createWindow(silentMode = false) {
     },
     titleBarStyle: 'hiddenInset',
     autoHideMenuBar: true,
+    icon: path.join(__dirname, '..', 'renderer', 'assets', 'icons', 'icon.ico'),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a1a' : '#f5f5f5',
     show: false
   });
