@@ -4,6 +4,7 @@
   "directories": {
     "output": "build2"
   },
+  "copyright": "Copyright © 2025 ByRUDAN",
   "win": {
     "icon": "renderer/assets/icons/icon.ico",
     "target": [
@@ -27,5 +28,60 @@
     "allowToChangeInstallationDirectory": true,
     "shortcutName": "OOOInterface易升", 
     "deleteAppDataOnUninstall": false
+  },
+  "linux": {
+    "icon": "renderer/assets/icons/logo.png",
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": [
+          "x64"
+        ]
+      },
+      {
+        "target": "deb",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "category": "Utility",
+    "maintainer": "ByRUDAN",
+    "vendor": "ByRUDAN",
+    "synopsis": "OOOInterface Update Assistant",
+    "description": "OOOInterface易升 - OOOInterface 更新助手"
+  },
+  "deb": {
+    "packageName": "ooointerface-update-assistant",
+    "priority": "optional",
+    "packageCategory": "utils"
+  },
+  "mac": {
+    "icon": "renderer/assets/icons/logo.png",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      },
+      {
+        "target": "zip",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      }
+    ],
+    "category": "public.app-category.utilities",
+    "type": "distribution",
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false,
+    "identity": null
+  },
+  "dmg": {
+    "title": "${productName} ${version}",
+    "writeUpdateInfo": false
   }
 }

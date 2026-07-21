@@ -393,9 +393,9 @@
         const userPaths = await window.electronAPI.folder.getUserPaths();
 
         const keNengLuJing = [
-          { path: userPaths.desktop + '\\OOOInterface', name: '桌面' },
-          { path: userPaths.documents + '\\OOOInterface', name: '文档' },
-          { path: userPaths.home + '\\OOOInterface', name: '用户目录' }
+          { path: window.electronAPI.path.join(userPaths.desktop, 'OOOInterface'), name: '桌面' },
+          { path: window.electronAPI.path.join(userPaths.documents, 'OOOInterface'), name: '文档' },
+          { path: window.electronAPI.path.join(userPaths.home, 'OOOInterface'), name: '用户目录' }
         ];
 
         let tuiJianLuJing = null;

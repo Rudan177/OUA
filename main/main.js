@@ -19,6 +19,14 @@ let tray = null;
 let isRestarting = false;
 let isQuitting = false;
 
+function getAppIconPath() {
+  const iconDir = path.join(__dirname, '..', 'renderer', 'assets', 'icons');
+  if (process.platform === 'win32') {
+    return path.join(iconDir, 'icon.ico');
+  }
+  return path.join(iconDir, 'logo.png');
+}
+
 // 单实例锁 - 防止多开
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -46,6 +54,13 @@ if (!app.isPackaged) {
   app.setPath('userData', customUserData);
 }
 
+function getTitleBarStyle() {
+  if (process.platform === 'darwin') {
+    return 'hiddenInset';
+  }
+  return 'default';
+}
+
 function createWindow(silentMode = false) {
   mainWindow = new BrowserWindow({
     width: 1000,
@@ -58,9 +73,9 @@ function createWindow(silentMode = false) {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: getTitleBarStyle(),
     autoHideMenuBar: true,
-    icon: path.join(__dirname, '..', 'renderer', 'assets', 'icons', 'icon.ico'),
+    icon: getAppIconPath(),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a1a' : '#f5f5f5',
     show: false
   });
@@ -445,22 +460,43 @@ ipcMain.handle('window-hide', async () => {
 });
 
 function createTray() {
-  const iconPath = path.join(__dirname, '..', 'renderer', 'assets', 'icons', 'logo.png');
-  if (fs.existsSync(iconPath)) {
-    tray = new Tray(iconPath);
+  const iconDir = path.join(__dirname, '..', 'renderer', 'assets', 'icons');
+  const pngIcon = path.join(iconDir, 'logo.png');
+  const icoIcon = path.join(iconDir, 'icon.ico');
+
+  let trayIconPath = null;
+  if (process.platform === 'win32') {
+    if (fs.existsSync(icoIcon)) {
+      trayIconPath = icoIcon;
+    } else if (fs.existsSync(pngIcon)) {
+      trayIconPath = pngIcon;
+    }
   } else {
-    // 如果 logo.png 不存在，尝试使用 icon.ico
-    const icoPath = path.join(__dirname, '..', 'renderer', 'assets', 'icons', 'icon.ico');
-    if (fs.existsSync(icoPath)) {
-      tray = new Tray(icoPath);
+    if (fs.existsSync(pngIcon)) {
+      trayIconPath = pngIcon;
+    } else if (fs.existsSync(icoIcon)) {
+      trayIconPath = icoIcon;
     }
   }
+
+  if (trayIconPath) {
+    tray = new Tray(trayIconPath);
+  } else {
+    logger.warn('未找到可用的托盘图标');
+    return;
+  }
+
+  if (process.platform === 'darwin') {
+    tray.setIgnoreDoubleClickEvents(true);
+  }
+
   const contextMenu = Menu.buildFromTemplate([
     {
       label: '显示窗口',
       click: () => {
         if (mainWindow) {
           mainWindow.show();
+          mainWindow.focus();
         }
       }
     },
@@ -475,11 +511,19 @@ function createTray() {
   ]);
   tray.setToolTip('OOOInterface Update Assistant');
   tray.setContextMenu(contextMenu);
-  tray.on('double-click', () => {
-    if (mainWindow) {
-      mainWindow.show();
-    }
-  });
+
+  if (process.platform !== 'darwin') {
+    tray.on('double-click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    });
+  }
 }
 
 /**
@@ -556,6 +600,21 @@ app.whenReady().then(() => {
   createWindow(silentMode);
   createTray();
 
+  if (process.platform === 'darwin') {
+    const dockMenu = Menu.buildFromTemplate([
+      {
+        label: '显示窗口',
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+          }
+        }
+      }
+    ]);
+    app.dock.setMenu(dockMenu);
+  }
+
   // 注册全局热键（打开窗口）
   zhuCeQuanJuReJian();
 
@@ -574,6 +633,9 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow(false);
+    } else if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
     }
   });
 });

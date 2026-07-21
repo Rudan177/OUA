@@ -1,5 +1,8 @@
 /**
- * 代理检测工具 - 从系统环境变量和 Windows 注册表检测代理
+ * 代理检测工具 - 从系统环境变量和系统代理设置检测代理
+ * - Windows: 注册表
+ * - macOS: scutil
+ * - Linux: 环境变量
  */
 const logger = require('./logger');
 const { execFileSync } = require('child_process');
@@ -25,6 +28,10 @@ function detectSystemProxyUrl() {
  * @returns {{proxyEnable: number, proxyServer: string}|null}
  */
 function readRegistryProxy() {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
   try {
     const regPath = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings';
     
@@ -75,7 +82,56 @@ function readRegistryProxy() {
 }
 
 /**
- * 检测系统代理 URL（异步版，包含注册表查询）
+ * 从 macOS 系统设置读取代理
+ * @returns {{proxyEnable: number, proxyServer: string}|null}
+ */
+function readMacOSProxy() {
+  if (process.platform !== 'darwin') {
+    return null;
+  }
+
+  try {
+    const output = execFileSync('scutil', ['--proxy'], {
+      encoding: 'utf8',
+      timeout: 5000
+    });
+
+    const httpEnableMatch = output.match(/HTTPEnable\s*:\s*(\d+)/);
+    const httpProxyMatch = output.match(/HTTPProxy\s*:\s*([^\s]+)/);
+    const httpPortMatch = output.match(/HTTPPort\s*:\s*(\d+)/);
+
+    const httpsEnableMatch = output.match(/HTTPSEnable\s*:\s*(\d+)/);
+    const httpsProxyMatch = output.match(/HTTPSProxy\s*:\s*([^\s]+)/);
+    const httpsPortMatch = output.match(/HTTPSPort\s*:\s*(\d+)/);
+
+    let proxyEnable = 0;
+    let proxyServer = '';
+
+    if (httpsEnableMatch && httpsEnableMatch[1] === '1' && httpsProxyMatch) {
+      proxyEnable = 1;
+      const port = httpsPortMatch ? `:${httpsPortMatch[1]}` : '';
+      proxyServer = `${httpsProxyMatch[1]}${port}`;
+    } else if (httpEnableMatch && httpEnableMatch[1] === '1' && httpProxyMatch) {
+      proxyEnable = 1;
+      const port = httpPortMatch ? `:${httpPortMatch[1]}` : '';
+      proxyServer = `${httpProxyMatch[1]}${port}`;
+    }
+
+    if (proxyEnable === 1 && proxyServer) {
+      logger.info(`从 macOS 系统设置检测到代理: ${proxyServer}`);
+      return { proxyEnable, proxyServer };
+    }
+
+    logger.info('macOS 系统代理未启用');
+    return null;
+  } catch (error) {
+    logger.info(`读取 macOS 代理设置失败: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * 检测系统代理 URL（异步版，包含系统级代理查询）
  * @returns {Promise<string|null>} 代理 URL 或 null
  */
 async function detectSystemProxyUrlAsync() {
@@ -85,10 +141,16 @@ async function detectSystemProxyUrlAsync() {
   }
 
   try {
-    const regResult = readRegistryProxy();
+    let sysProxy = null;
 
-    if (regResult && regResult.proxyServer) {
-      let proxyUrl = regResult.proxyServer;
+    if (process.platform === 'win32') {
+      sysProxy = readRegistryProxy();
+    } else if (process.platform === 'darwin') {
+      sysProxy = readMacOSProxy();
+    }
+
+    if (sysProxy && sysProxy.proxyServer) {
+      let proxyUrl = sysProxy.proxyServer;
 
       // 处理分号分隔的多协议格式: "http=127.0.0.1:7890;https=127.0.0.1:7890"
       if (proxyUrl.includes(';')) {
@@ -111,7 +173,7 @@ async function detectSystemProxyUrlAsync() {
       if (!proxyUrl.startsWith('http://') && !proxyUrl.startsWith('https://')) {
         proxyUrl = `http://${proxyUrl}`;
       }
-      logger.info(`从注册表检测到代理: ${proxyUrl}`);
+      logger.info(`从系统设置检测到代理: ${proxyUrl}`);
       return proxyUrl;
     }
   } catch (error) {

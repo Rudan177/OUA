@@ -3,8 +3,32 @@
  */
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
+const platform = process.platform;
+const pathSep = platform === 'win32' ? '\\' : '/';
+
+function joinPath(...args) {
+  const parts = args.filter(p => p && p.length > 0);
+  if (parts.length === 0) return '.';
+
+  let result = parts[0];
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    if (result.endsWith(pathSep) || part.startsWith(pathSep)) {
+      result += part;
+    } else {
+      result += pathSep + part;
+    }
+  }
+  return result;
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   isDev: false,
+  platform: platform,
+  path: {
+    join: joinPath,
+    sep: pathSep
+  },
   /** 从 File 对象获取真实文件系统路径（用于拖放场景） */
   getFilePath: (file) => webUtils.getPathForFile(file),
   folder: {
