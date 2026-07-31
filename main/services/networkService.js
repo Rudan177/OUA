@@ -139,9 +139,10 @@ function connectThroughProxy(proxyUrl, host, port, connectTimeoutMs = 15000, tls
  * @param {string} pathWithQuery - 请求路径
  * @param {object} proxy - 代理配置
  * @param {number} timeoutMs - 超时毫秒数
+ * @param {Function} [onData] - 可选的数据分块回调 (chunk, receivedBytes, totalBytes)，用于上报下载进度
  * @returns {Promise<object>} 响应对象 (data, statusCode, headers)
  */
-function httpsRequest(host, port, pathWithQuery, proxy, timeoutMs) {
+function httpsRequest(host, port, pathWithQuery, proxy, timeoutMs, onData) {
   return new Promise((resolve, reject) => {
     let req;
 
@@ -172,16 +173,47 @@ function httpsRequest(host, port, pathWithQuery, proxy, timeoutMs) {
     }
 
     function handleResponse(res) {
-      if (res.statusCode === 301 || res.statusCode === 302) {
-        const redirectUrl = new URL(res.headers.location);
-        httpsRequest(redirectUrl.hostname, parseInt(redirectUrl.port) || 443, redirectUrl.pathname + redirectUrl.search, proxy, timeoutMs)
-          .then(resolve, reject);
+      // 支持 301/302/303 重定向，兼容相对路径的 Location（基于当前请求 URL 解析）
+      if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 303) {
+        const location = res.headers.location;
+        if (!location) {
+          res.resume();
+          reject(new Error(`重定向响应缺少 Location 头 (HTTP ${res.statusCode})`));
+          return;
+        }
+
+        let redirectUrl;
+        try {
+          redirectUrl = new URL(location, `https://${host}${pathWithQuery}`);
+        } catch (error) {
+          res.resume();
+          reject(new Error(`无效的重定向地址: ${location}`));
+          return;
+        }
+
+        httpsRequest(
+          redirectUrl.hostname,
+          parseInt(redirectUrl.port) || 443,
+          redirectUrl.pathname + redirectUrl.search,
+          proxy,
+          timeoutMs,
+          onData
+        ).then(resolve, reject);
         res.resume();
         return;
       }
 
       const chunks = [];
-      res.on('data', chunk => chunks.push(chunk));
+      let received = 0;
+      const totalSize = parseInt(res.headers['content-length'], 10) || 0;
+
+      res.on('data', chunk => {
+        chunks.push(chunk);
+        received += chunk.length;
+        if (typeof onData === 'function') {
+          onData(chunk, received, totalSize);
+        }
+      });
       res.on('end', () => {
         resolve({
           data: Buffer.concat(chunks),

@@ -239,6 +239,7 @@ body {
   flex: 2;
   display: flex;
   flex-direction: column;
+  gap: 20px;
   min-height: 0;
   margin-left: 0;
 }
@@ -275,6 +276,10 @@ body {
 }
 
 .Cc-MianBan {
+  flex-shrink: 0;
+}
+
+.Dd-MianBan {
   flex-shrink: 0;
 }
 
@@ -653,6 +658,73 @@ body {
 
 .Cc-CaoZuo.YinCang {
   display: none !important;
+}
+
+/* 相关链接面板 */
+.Dd-LianJie-LieBiao {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.Dd-LianJie-Xiang {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  backdrop-filter: blur(40px) saturate(1.3);
+  -webkit-backdrop-filter: blur(40px) saturate(1.3);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--border-color);
+}
+
+.Dd-LianJie-Xiang:hover {
+  background: #008C00;
+  color: white;
+  border-color: #008C00;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 174, 0, 0.3);
+}
+
+.Dd-TuBiao {
+  display: block;
+  width: 20px;
+  height: 20px;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  line-height: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.Dd-LianJie-Xiang:hover .Dd-TuBiao {
+  color: white;
+}
+
+.Dd-MingCheng {
+  font-size: 13px;
+  font-weight: 500;
+  color: inherit;
+  line-height: 1;
+  white-space: nowrap;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.Dd-LianJie-Xiang:hover .Dd-MingCheng {
+  max-width: 80px;
+  opacity: 1;
+  margin-left: 6px;
 }
 
 .AnNiu-ChongZai {

@@ -15,7 +15,7 @@ function initLogger(logDir) {
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true });
   }
-  
+
   const date = new Date().toISOString().split('T')[0];
   logFilePath = path.join(logDir, `oua-${date}.log`);
 }
@@ -27,12 +27,12 @@ function initLogger(logDir) {
  */
 function log(level, message) {
   if (!logEnabled) return;
-  
+
   const timestamp = new Date().toISOString();
   const logEntry = `[${timestamp}] [${level}] ${message}`;
-  
+
   console.log(logEntry);
-  
+
   if (logFilePath) {
     try {
       fs.appendFileSync(logFilePath, logEntry + '\n');

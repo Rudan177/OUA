@@ -34,14 +34,14 @@ function readRegistryProxy() {
 
   try {
     const regPath = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings';
-    
+
     // 读取 ProxyEnable
     const enableOutput = execFileSync('reg', ['query', regPath, '/v', 'ProxyEnable'], {
       encoding: 'utf8',
       timeout: 5000,
       windowsHide: true
     });
-    
+
     // 解析输出，格式: "    ProxyEnable    REG_DWORD    0x1"
     // 某些 Windows 版本可能是 REG_BINARY 类型
     const enableMatch = enableOutput.match(/ProxyEnable\s+REG_(?:DWORD|BINARY)\s+0x([0-9a-fA-F]+)/i);
@@ -49,20 +49,20 @@ function readRegistryProxy() {
       logger.info(`ProxyEnable 格式解析失败，输出: ${enableOutput.trim()}`);
       return null;
     }
-    
+
     const proxyEnable = parseInt(enableMatch[1], 16);
     if (proxyEnable !== 1) {
       logger.info(`系统代理未启用 (ProxyEnable=${proxyEnable})`);
       return null;
     }
-    
+
     // ProxyEnable=1，继续读取 ProxyServer
     const serverOutput = execFileSync('reg', ['query', regPath, '/v', 'ProxyServer'], {
       encoding: 'utf8',
       timeout: 5000,
       windowsHide: true
     });
-    
+
     // 解析输出，格式: "    ProxyServer    REG_SZ    127.0.0.1:7890"
     // 使用更灵活的正则，匹配 REG_SZ、REG_MULTI_SZ 等类型
     const serverMatch = serverOutput.match(/ProxyServer\s+REG_\w+\s+(.+)/i);
@@ -70,7 +70,7 @@ function readRegistryProxy() {
       logger.info(`ProxyServer 格式解析失败，输出: ${serverOutput.trim()}`);
       return null;
     }
-    
+
     return {
       proxyEnable: proxyEnable,
       proxyServer: serverMatch[1].trim()

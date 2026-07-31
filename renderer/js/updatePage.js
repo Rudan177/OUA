@@ -481,6 +481,12 @@
       } else if (structure === 'incomplete') {
         const shouldOverwrite = await DialogManager.QueRen('文件不完整', '检测到 OOOInterface 文件不完整，是否重新下载覆盖？');
         if (shouldOverwrite) {
+          // 本地模式下"重新下载覆盖"需要远程分支；重置为 LTS，避免 forceOverwrite 使用 local 分支下载错误内容
+          if (ShiFouLocal()) {
+            DangQianFenZhi = 'LTS';
+            await window.electronAPI.update.setBranch('LTS');
+            GengXinTongDaoAnNiu();
+          }
           await window.electronAPI.folder.setInstallDir(luJing);
           AnZhuangLuJing = luJing;
           GengXinAnZhuangLuJingXianShi();

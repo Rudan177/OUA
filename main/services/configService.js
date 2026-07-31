@@ -33,7 +33,7 @@ function initConfig() {
  */
 function loadConfig() {
   const configPath = pathUtils.getConfigFilePath();
-  
+
   if (fs.existsSync(configPath)) {
     try {
       configData = fileUtils.readJson(configPath);

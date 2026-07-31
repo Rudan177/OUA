@@ -7,16 +7,19 @@ const AdmZip = require('adm-zip');
 const logger = require('../utils/logger');
 const fileUtils = require('../utils/fileUtils');
 const pathUtils = require('../utils/pathUtils');
+const appConfig = require('../config/appConfig');
 
 /**
  * 必需文件列表
+ * 与 folderService/appConfig 保持一致，避免远程更新与目录校验标准不一致
  */
-const REQUIRED_ITEMS = ['README.md', 'manifest.json', 'main', 'images'];
+const REQUIRED_ITEMS = [...appConfig.requiredFiles];
 
 /**
  * 可接受的文件/目录列表（不会报错）
+ * README.md/.gitignore 属于常见文件，允许存在但不作为必需项
  */
-const ACCEPTABLE_ITEMS = [...REQUIRED_ITEMS, '.gitignore'];
+const ACCEPTABLE_ITEMS = [...new Set([...REQUIRED_ITEMS, 'README.md', '.gitignore'])];
 
 /**
  * 查找真正的源目录（处理压缩包内层文件夹）
@@ -53,8 +56,7 @@ function findSourceDir(extractDir) {
 
   throw new Error(
     '压缩包结构不符合要求。\n' +
-    '请确保压缩包内直接包含：\n' +
-    '  - README.md\n  - manifest.json\n  - main/ 文件夹\n  - images/ 文件夹\n' +
+    `请确保压缩包内直接包含：\n  - ${REQUIRED_ITEMS.join('\n  - ')}\n` +
     '（如果压缩包内有一个文件夹包含这些文件，也会被自动识别）'
   );
 }

@@ -43,13 +43,21 @@ async function downloadZip(url, targetPath, progressCallback) {
     let req;
 
     if (proxy && proxy.https) {
-      // 通过代理下载
+      // 通过代理下载（上报进度，与直连行为保持一致）
       networkService.httpsRequest(
         parsedUrl.hostname,
         parseInt(parsedUrl.port) || 443,
         parsedUrl.pathname + parsedUrl.search,
         proxy,
-        120000
+        120000,
+        (chunk, received, totalSize) => {
+          if (totalSize > 0) {
+            const percent = Math.round((received / totalSize) * 100);
+            progressCallback({ percent, message: `下载中 ${percent}%` });
+          } else {
+            progressCallback({ percent: 0, message: `已下载 ${Math.round(received / 1024)} KB` });
+          }
+        }
       ).then(response => {
         if (response.statusCode !== 200) {
           reject(new Error(`下载失败: HTTP ${response.statusCode}`));
@@ -66,11 +74,12 @@ async function downloadZip(url, targetPath, progressCallback) {
         timeout: 120000,
         headers: { 'User-Agent': 'OUA-Update-Assistant' }
       }, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          // 重定向
+        if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 303) {
+          // 重定向（兼容相对路径的 Location）
           if (res.headers.location) {
-            logger.info(`重定向到: ${res.headers.location}`);
-            downloadZip(res.headers.location, targetPath, progressCallback).then(resolve, reject);
+            const redirectUrl = new URL(res.headers.location, url).href;
+            logger.info(`重定向到: ${redirectUrl}`);
+            downloadZip(redirectUrl, targetPath, progressCallback).then(resolve, reject);
             res.resume();
             return;
           }

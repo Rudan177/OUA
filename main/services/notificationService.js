@@ -46,7 +46,7 @@ async function fetchNotifications() {
   logger.info(`获取通知: ${url}`);
 
   const agent = await getProxyAgent();
-  
+
   return new Promise((resolve) => {
     const req = https.get(url, { agent }, (res) => {
       // 检查 HTTP 状态码
@@ -55,13 +55,13 @@ async function fetchNotifications() {
         resolve(null);
         return;
       }
-      
+
       let data = '';
-      
+
       res.on('data', (chunk) => {
         data += chunk;
       });
-      
+
       res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
@@ -73,12 +73,12 @@ async function fetchNotifications() {
         }
       });
     });
-    
+
     req.on('error', (error) => {
       logger.error(`通知请求失败: ${error.message}`);
       resolve(null);
     });
-    
+
     req.setTimeout(15000, () => {
       req.destroy();
       logger.error('通知请求超时');
@@ -94,9 +94,9 @@ async function fetchNotifications() {
  */
 function formatNotifications(notifications) {
   if (!notifications) return [];
-  
+
   const entries = Object.entries(notifications);
-  
+
   const parsed = entries.map(([key, value]) => {
     if (!value || typeof value !== 'object') {
       return { id: key, sortKey: 0, title: '', link: null, text: '' };
@@ -109,9 +109,9 @@ function formatNotifications(notifications) {
       text: value.text || ''
     };
   });
-  
+
   parsed.sort((a, b) => b.sortKey - a.sortKey);
-  
+
   return parsed;
 }
 

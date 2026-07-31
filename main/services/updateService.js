@@ -157,14 +157,13 @@ async function firstInstall(targetDir, progressCallback) {
 async function forceOverwrite(targetDir, branch, progressCallback) {
   const tempDir = pathUtils.getTempDir();
   const tempExtractDir = path.join(tempDir, `oua-force-overwrite-${Date.now()}`);
+  // 在 try 外声明，确保 finally 中可以访问（块级作用域限制）
+  const zipPath = path.join(tempDir, `oua-download-${branch}-${Date.now()}.zip`);
 
   try {
     logger.info(`强制覆盖更新: ${targetDir} (分支: ${branch})`);
 
     // 1. 下载 ZIP 到临时目录
-    const zipFileName = `oua-download-${branch}-${Date.now()}.zip`;
-    const zipPath = path.join(tempDir, zipFileName);
-
     progressCallback({ percent: 0, message: '开始下载...' });
     const zipUrl = downloadService.getZipUrl(branch);
     await downloadService.downloadZip(zipUrl, zipPath, progressCallback);
@@ -218,6 +217,14 @@ async function forceOverwrite(targetDir, branch, progressCallback) {
       }
     } catch (cleanupError) {
       logger.warn(`清理临时目录失败: ${cleanupError.message}`);
+    }
+    // 清理临时 ZIP 文件
+    try {
+      if (fs.existsSync(zipPath)) {
+        fs.unlinkSync(zipPath);
+      }
+    } catch (cleanupError) {
+      logger.warn(`清理临时 ZIP 文件失败: ${cleanupError.message}`);
     }
   }
 }

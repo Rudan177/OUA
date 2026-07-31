@@ -47,7 +47,7 @@ window.SettingsPage = {
 
   zhanKaiXiangQing: function(option) {
     const target = option.dataset.target;
-    
+
     document.querySelectorAll('.settings-menu-option').forEach(opt => {
       opt.classList.remove('selected');
     });
@@ -61,7 +61,7 @@ window.SettingsPage = {
       clone.classList.remove('YinCang');
       clone.classList.add('active');
       clone.id = 'right-panel-content';
-      
+
       rightPanelUpper.innerHTML = '';
       rightPanelUpper.appendChild(clone);
 
@@ -113,7 +113,7 @@ window.SettingsPage = {
       clone.classList.remove('YinCang');
       clone.classList.add('active');
       clone.id = 'right-panel-content';
-      
+
       rightPanelUpper.innerHTML = '';
       rightPanelUpper.appendChild(clone);
 
@@ -158,20 +158,20 @@ window.SettingsPage = {
     try {
       // 先获取代理配置
       const proxyConfig = await window.electronAPI.settings.getProxyConfig();
-      
+
       // 打开设置遮罩层
       const sheZhiZheZhao = document.getElementById('SheZhi-ZheZhao');
       sheZhiZheZhao.classList.remove('YinCang');
       setTimeout(() => {
         sheZhiZheZhao.classList.add('JiHuo');
       }, 10);
-      
+
       // 自动选中第一个菜单项（代理设置）
       const firstMenuOption = document.querySelector('.settings-menu-option[data-target="daiLi"]');
       if (firstMenuOption) {
         // 选中菜单并展开面板
         this.zhanKaiXiangQing(firstMenuOption);
-        
+
         // 等待 DOM 更新后再设置值
         setTimeout(() => {
           this.tianChongDaiLiPeiZhi(proxyConfig);
@@ -186,7 +186,7 @@ window.SettingsPage = {
     try {
       const rightPanelContent = document.getElementById('right-panel-content');
       if (!rightPanelContent) return;
-      
+
       const daiLiZiDongKaiGuan = rightPanelContent.querySelector('#DaiLi-ZiDong-KaiGuan');
       const daiLiShouDongRongQi = rightPanelContent.querySelector('#DaiLi-ShouDong-RongQi');
       const daiLiZiDongTiShi = rightPanelContent.querySelector('#DaiLi-ZiDong-TiShi');
@@ -212,11 +212,11 @@ window.SettingsPage = {
       if (daiLiKaiGuan) {
         daiLiKaiGuan.checked = proxyConfig.enabled;
       }
-      
+
       const proxyUrl = proxyConfig.http || '';
       const urlWithoutProtocol = proxyUrl.replace(/^https?:\/\//, '');
       const parts = urlWithoutProtocol.split(':');
-      
+
       if (daiLiIP) {
         daiLiIP.value = parts[0] || '';
       }
@@ -268,7 +268,7 @@ window.SettingsPage = {
 
       const ip = daiLiIP ? daiLiIP.value.trim() : '';
       const port = daiLiDuanKou ? daiLiDuanKou.value.trim() : '';
-      
+
       let proxyUrl = '';
       if (ip && port) {
         proxyUrl = 'http://' + ip + ':' + port;
@@ -282,7 +282,7 @@ window.SettingsPage = {
       };
 
       await window.electronAPI.settings.setProxyConfig(proxyConfig);
-      
+
       this.guanBiSheZhi();
     } catch (error) {
       console.error('保存设置失败:', error);

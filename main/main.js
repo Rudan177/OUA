@@ -1,7 +1,7 @@
 /**
  * Electron 主进程入口
  */
-const { app, BrowserWindow, ipcMain, nativeTheme, Tray, Menu, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, Tray, Menu, globalShortcut, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -19,12 +19,20 @@ let tray = null;
 let isRestarting = false;
 let isQuitting = false;
 
-function getAppIconPath() {
+function getAppIcon() {
   const iconDir = path.join(__dirname, '..', 'renderer', 'assets', 'icons');
-  if (process.platform === 'win32') {
-    return path.join(iconDir, 'icon.ico');
+  const iconFile = process.platform === 'win32' ? 'icon.ico' : 'logo.png';
+  const iconPath = path.join(iconDir, iconFile);
+  try {
+    const icon = nativeImage.createFromPath(iconPath);
+    if (!icon.isEmpty()) {
+      return icon;
+    }
+    logger.warn('应用图标加载为空: ' + iconPath);
+  } catch (error) {
+    logger.warn('应用图标加载失败: ' + error.message);
   }
-  return path.join(iconDir, 'logo.png');
+  return null;
 }
 
 // 单实例锁 - 防止多开
@@ -62,6 +70,7 @@ function getTitleBarStyle() {
 }
 
 function createWindow(silentMode = false) {
+  const appIcon = getAppIcon();
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
@@ -75,10 +84,14 @@ function createWindow(silentMode = false) {
     },
     titleBarStyle: getTitleBarStyle(),
     autoHideMenuBar: true,
-    icon: getAppIconPath(),
+    icon: appIcon,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a1a' : '#f5f5f5',
     show: false
   });
+
+  if (appIcon) {
+    mainWindow.setIcon(appIcon);
+  }
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
@@ -480,7 +493,13 @@ function createTray() {
   }
 
   if (trayIconPath) {
-    tray = new Tray(trayIconPath);
+    const trayIcon = nativeImage.createFromPath(trayIconPath);
+    if (!trayIcon.isEmpty()) {
+      tray = new Tray(trayIcon);
+    } else {
+      logger.warn('托盘图标加载为空: ' + trayIconPath);
+      return;
+    }
   } else {
     logger.warn('未找到可用的托盘图标');
     return;

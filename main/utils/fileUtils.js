@@ -13,13 +13,13 @@ function copyDirectory(src, dest) {
   if (!fs.existsSync(dest)) {
     fs.mkdirSync(dest, { recursive: true });
   }
-  
+
   const entries = fs.readdirSync(src, { withFileTypes: true });
-  
+
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
-    
+
     if (entry.isDirectory()) {
       copyDirectory(srcPath, destPath);
     } else {
@@ -96,7 +96,7 @@ function writeFile(filePath, content, encoding = 'utf8') {
 function readJson(filePath) {
   const content = readFile(filePath);
   if (!content) return null;
-  
+
   try {
     return JSON.parse(content);
   } catch (error) {
@@ -114,10 +114,10 @@ function writeJson(filePath, data) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  
+
   const content = JSON.stringify(data, null, 2);
   let lastError = null;
-  
+
   for (let attempt = 0; attempt < 8; attempt++) {
     if (attempt > 0) {
       // 递增等待：100ms, 200ms, 400ms, 800ms, 1600ms, 3200ms, 6400ms
@@ -125,7 +125,7 @@ function writeJson(filePath, data) {
       const start = Date.now();
       while (Date.now() - start < delay) { /* spin wait */ }
     }
-    
+
     try {
       // 如果文件存在，先清除只读属性
       if (fs.existsSync(filePath)) {
@@ -136,23 +136,23 @@ function writeJson(filePath, data) {
           }
         } catch (e) { /* ignore */ }
       }
-      
+
       // 直接覆盖写入
       fs.writeFileSync(filePath, content, { encoding: 'utf8', mode: 0o666 });
       return; // 成功则返回
     } catch (error) {
       lastError = error;
-      
+
       if (error.code === 'EPERM' || error.code === 'EBUSY' || error.code === 'EACCES') {
         // 文件被锁定（杀毒软件等），继续重试
         continue;
       }
-      
+
       // 其他错误直接抛出
       throw error;
     }
   }
-  
+
   throw lastError;
 }
 

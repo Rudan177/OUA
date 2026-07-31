@@ -15,18 +15,18 @@
       } catch (e) {
         console.error('加载版本号失败:', e);
       }
-      
+
       // 三击版本号切换设置入口（显示/隐藏）
       const banBenHao = document.getElementById('BanBen-Hao');
       const ccCaoZuo = document.getElementById('Cc-CaoZuo');
-      
+
       if (banBenHao && ccCaoZuo) {
         let clickCount = 0;
         let clickTimer = null;
-        
+
         banBenHao.addEventListener('click', () => {
           clickCount++;
-          
+
           // 点击反馈：短暂高亮
           banBenHao.style.color = 'var(--primary-color)';
           banBenHao.style.fontWeight = '700';
@@ -34,7 +34,7 @@
             banBenHao.style.color = '';
             banBenHao.style.fontWeight = '';
           }, 150);
-          
+
           if (clickCount === 3) {
             // 三击，切换设置入口显示/隐藏
             ccCaoZuo.classList.toggle('YinCang');
