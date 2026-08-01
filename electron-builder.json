@@ -4,6 +4,17 @@
   "directories": {
     "output": "build2"
   },
+  "files": [
+    "main/**/*",
+    "renderer/**/*",
+    "package.json",
+    "!storage/**/*",
+    "!temp/**/*",
+    "!build/**/*",
+    "!build2/**/*",
+    "!scripts/**/*",
+    "!test-api.js"
+  ],
   "copyright": "Copyright © 2025 ByRUDAN",
   "win": {
     "icon": "renderer/assets/icons/icon.ico",

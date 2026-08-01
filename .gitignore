@@ -2,6 +2,10 @@ node_modules/
 storage/
 temp/
 dist/
+build/
 build2/
 *.log
 .DS_Store
+
+# 临时测试脚本
+test-api.js
