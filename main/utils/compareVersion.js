@@ -86,6 +86,44 @@ function parseVersion(version) {
 }
 
 /**
+ * 把后缀拆成自然顺序的段（数字段按数值比较），避免 "BS100" < "BS12" 的字典序误判
+ * @param {string} s - 后缀字符串
+ * @returns {string[]} 分割后的段数组
+ */
+function splitSuffix(s) {
+  return String(s).split(/(\d+)/).filter(Boolean);
+}
+
+/**
+ * 自然序比较两个纯字符串段后缀（数字段按数值，其余按字典序）
+ * @param {string} s1
+ * @param {string} s2
+ * @returns {number} 1/-1/0
+ */
+function compareSuffixNatural(s1, s2) {
+  const a = splitSuffix(s1);
+  const b = splitSuffix(s2);
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    if (x === y) continue;
+    const nx = /^\d+$/.test(x);
+    const ny = /^\d+$/.test(y);
+    if (nx && ny) {
+      const diff = parseInt(x, 10) - parseInt(y, 10);
+      if (diff !== 0) return diff > 0 ? 1 : -1;
+    } else {
+      const d = x < y ? -1 : x > y ? 1 : 0;
+      if (d !== 0) return d;
+    }
+  }
+  return 0;
+}
+
+/**
  * 比较两个版本号
  * @param {string} v1 - 第一个版本号
  * @param {string} v2 - 第二个版本号
@@ -124,13 +162,13 @@ function compareVersion(v1, v2) {
   if (parsed1.branchType > parsed2.branchType) return 1;
   if (parsed1.branchType < parsed2.branchType) return -1;
 
-  // 4. 分支类型也相同时，比较 suffix 字符串剩余部分（序号等）
+  // 4. 分支类型也相同时，比较 suffix 字符串剩余部分（序号等，按自然序比较数字段）
   const suffix1 = parsed1.suffix;
   const suffix2 = parsed2.suffix;
 
   if (suffix1 !== null && suffix2 !== null) {
-    if (suffix1 > suffix2) return 1;
-    if (suffix1 < suffix2) return -1;
+    const d = compareSuffixNatural(suffix1, suffix2);
+    if (d !== 0) return d;
   } else if (suffix1 !== null && suffix2 === null) {
     // 有后缀的版本高于没有后缀的版本
     return 1;

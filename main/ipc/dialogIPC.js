@@ -32,13 +32,7 @@ function registerDialogIPC() {
     return null;
   });
 
-  ipcMain.handle('show-message', async (event, options) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const result = await dialog.showMessageBox(win, options);
-    return result.response;
-  });
-
-  ipcMain.handle('fetch-notifications', async () => {
+ipcMain.handle('fetch-notifications', async () => {
     const raw = await notificationService.fetchNotifications();
     return notificationService.formatNotifications(raw);
   });

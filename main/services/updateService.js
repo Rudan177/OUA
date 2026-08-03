@@ -4,7 +4,6 @@
 const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
-const fileUtils = require('../utils/fileUtils');
 const pathUtils = require('../utils/pathUtils');
 const downloadService = require('./downloadService');
 const zipService = require('./zipService');
@@ -68,8 +67,10 @@ function formatError(error) {
  * @param {string} targetDir - 目标安装目录
  * @param {string} branch - 分支名称
  * @param {Function} progressCallback - 进度回调
+ * @param {object} [options]
+ * @param {boolean} [options.clearTarget=false] - 解压前清空目标目录（覆盖安装场景）
  */
-async function downloadAndExtract(targetDir, branch, progressCallback) {
+async function downloadAndExtract(targetDir, branch, progressCallback, options = {}) {
   const tempDir = pathUtils.getTempDir();
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
@@ -85,7 +86,13 @@ async function downloadAndExtract(targetDir, branch, progressCallback) {
     const zipUrl = downloadService.getZipUrl(branch);
     await downloadService.downloadZip(zipUrl, zipPath, progressCallback);
 
-    // 2. 解压到目标目录
+    // 2. 覆盖安装场景下先清空目标目录
+    if (options.clearTarget) {
+      progressCallback({ percent: 70, message: '正在清空目标目录...' });
+      clearDirectory(targetDir);
+    }
+
+    // 3. 解压到目标目录
     progressCallback({ percent: 80, message: '正在解压...' });
     await zipService.extractAndValidateZip(zipPath, targetDir, (p) => {
       // 将解压进度映射到 80-100 范围
@@ -148,84 +155,22 @@ async function firstInstall(targetDir, progressCallback) {
 }
 
 /**
- * 强制覆盖更新
+ * 强制覆盖更新（清空目标目录后重新安装）
  * @param {string} targetDir - 目标目录
  * @param {string} branch - 分支名称
  * @param {Function} progressCallback - 进度回调
  * @returns {Promise<boolean>} 是否成功
  */
 async function forceOverwrite(targetDir, branch, progressCallback) {
-  const tempDir = pathUtils.getTempDir();
-  const tempExtractDir = path.join(tempDir, `oua-force-overwrite-${Date.now()}`);
-  // 在 try 外声明，确保 finally 中可以访问（块级作用域限制）
-  const zipPath = path.join(tempDir, `oua-download-${branch}-${Date.now()}.zip`);
-
   try {
     logger.info(`强制覆盖更新: ${targetDir} (分支: ${branch})`);
-
-    // 1. 下载 ZIP 到临时目录
-    progressCallback({ percent: 0, message: '开始下载...' });
-    const zipUrl = downloadService.getZipUrl(branch);
-    await downloadService.downloadZip(zipUrl, zipPath, progressCallback);
-
-    // 2. 解压到临时提取目录（包含嵌套文件夹）
-    progressCallback({ percent: 50, message: '正在解压...' });
-    const admZip = require('adm-zip');
-    const zip = new admZip(zipPath);
-    zip.extractAllTo(tempExtractDir, true);
-
-    // 3. 找到实际内容（GitHub ZIP 会嵌套一层目录，如 OOOInterface-LTS/）
-    const sourceContents = fs.readdirSync(tempExtractDir);
-    let sourceDir = tempExtractDir;
-    if (sourceContents.length === 1) {
-      const singleItem = path.join(tempExtractDir, sourceContents[0]);
-      if (fs.statSync(singleItem).isDirectory()) {
-        sourceDir = singleItem;
-      }
-    }
-
-    // 4. 复制到目标目录
-    progressCallback({ percent: 70, message: '正在覆盖文件...' });
-
-    // 先清空目标目录
-    clearDirectory(targetDir);
-
-    // 复制新文件
-    const items = fs.readdirSync(sourceDir);
-    for (const item of items) {
-      const srcPath = path.join(sourceDir, item);
-      const destPath = path.join(targetDir, item);
-      if (fs.statSync(srcPath).isDirectory()) {
-        fileUtils.copyDirectory(srcPath, destPath);
-      } else {
-        fs.copyFileSync(srcPath, destPath);
-      }
-    }
-
+    await downloadAndExtract(targetDir, branch, progressCallback, { clearTarget: true });
     logger.info('强制覆盖更新完成');
-    progressCallback({ percent: 100, message: '完成' });
     return true;
   } catch (error) {
     logger.error(`强制覆盖更新失败: ${error.message}`);
     const friendlyError = new Error(formatError(error));
     throw friendlyError;
-  } finally {
-    // 清理临时目录
-    try {
-      if (fs.existsSync(tempExtractDir)) {
-        fileUtils.removeDirectory(tempExtractDir);
-      }
-    } catch (cleanupError) {
-      logger.warn(`清理临时目录失败: ${cleanupError.message}`);
-    }
-    // 清理临时 ZIP 文件
-    try {
-      if (fs.existsSync(zipPath)) {
-        fs.unlinkSync(zipPath);
-      }
-    } catch (cleanupError) {
-      logger.warn(`清理临时 ZIP 文件失败: ${cleanupError.message}`);
-    }
   }
 }
 

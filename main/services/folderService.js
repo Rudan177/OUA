@@ -65,54 +65,7 @@ function checkFolderStructure(dirPath) {
   return 'valid';
 }
 
-/**
- * 获取缺失的文件列表
- * @param {string} dirPath - 文件夹路径
- * @returns {string[]} 缺失的文件/目录列表
- */
-function getMissingFiles(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    return [...appConfig.requiredFiles];
-  }
-
-  const contents = fileUtils.getDirectoryContents(dirPath);
-  const presentItems = new Set(contents);
-  const missing = [];
-
-  for (const item of appConfig.requiredFiles) {
-    if (!presentItems.has(item)) {
-      missing.push(item);
-    }
-  }
-
-  return missing;
-}
-
-/**
- * 验证目录包含 OOOInterface 相关文件（非空且非无关文件）
- * @param {string} dirPath - 文件夹路径
- * @returns {boolean} 是否包含 OOOInterface 文件
- */
-function containsOOOInterfaceFiles(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    return false;
-  }
-
-  const contents = fileUtils.getDirectoryContents(dirPath);
-  const presentItems = new Set(contents);
-
-  for (const item of appConfig.requiredFiles) {
-    if (presentItems.has(item)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 module.exports = {
   checkFolderStructure,
-  getMissingFiles,
-  containsOOOInterfaceFiles,
   hasWritePermission
 };

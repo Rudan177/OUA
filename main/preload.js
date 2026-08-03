@@ -23,7 +23,7 @@ function joinPath(...args) {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  isDev: false,
+  isDev: process.env.OUA_DEV === '1',
   platform: platform,
   path: {
     join: joinPath,
@@ -33,15 +33,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFilePath: (file) => webUtils.getPathForFile(file),
   folder: {
     checkStructure: (dirPath) => ipcRenderer.invoke('check-folder-structure', dirPath),
-    getMissingFiles: (dirPath) => ipcRenderer.invoke('get-missing-files', dirPath),
-    containsOOOInterfaceFiles: (dirPath) => ipcRenderer.invoke('contains-ooointerface-files', dirPath),
     hasWritePermission: (dirPath) => ipcRenderer.invoke('has-write-permission', dirPath),
     ensureDirectory: (dirPath) => ipcRenderer.invoke('ensure-directory', dirPath),
     getInstallDir: () => ipcRenderer.invoke('get-install-dir'),
     setInstallDir: (dirPath) => ipcRenderer.invoke('set-install-dir', dirPath),
-    isFirstRun: () => ipcRenderer.invoke('is-first-run'),
-    getConfig: () => ipcRenderer.invoke('get-config'),
-    getAppPaths: () => ipcRenderer.invoke('get-app-paths'),
     getUserPaths: () => ipcRenderer.invoke('get-user-paths')
   },
   system: {
@@ -67,15 +62,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   dialog: {
     selectFolder: () => ipcRenderer.invoke('select-folder'),
     selectZipFile: () => ipcRenderer.invoke('select-zip-file'),
-    showMessage: (options) => ipcRenderer.invoke('show-message', options),
     fetchNotifications: () => ipcRenderer.invoke('fetch-notifications')
-  },
-  theme: {
-    onThemeChanged: (callback) => {
-      const handler = (_event, theme) => callback(theme);
-      ipcRenderer.on('theme-changed', handler);
-      return () => ipcRenderer.removeListener('theme-changed', handler);
-    }
   },
   app: {
     reset: () => ipcRenderer.invoke('app-reset'),

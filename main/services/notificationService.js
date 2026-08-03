@@ -1,90 +1,43 @@
 /**
  * 通知服务 - 获取和解析通知数据
+ * 网络/代理部分统一复用 networkService，避免代理逻辑重复
  */
-const https = require('https');
-const { HttpsProxyAgent } = require('https-proxy-agent');
+const { URL } = require('url');
 const logger = require('../utils/logger');
 const appConfig = require('../config/appConfig');
-const configService = require('./configService');
-const proxyUtils = require('../utils/proxyUtils');
-
-/**
- * 获取代理 agent
- * @returns {Promise<HttpsProxyAgent|null>}
- */
-async function getProxyAgent() {
-  const proxyConfig = configService.getProxyConfig();
-
-  let proxyUrl = null;
-
-  if (proxyConfig.autoConfigure) {
-    logger.info('自动配置代理模式，检测系统代理...');
-    proxyUrl = await proxyUtils.detectSystemProxyUrlAsync();
-  } else if (proxyConfig.enabled) {
-    proxyUrl = proxyConfig.http || proxyConfig.https;
-  }
-
-  if (!proxyUrl) {
-    return null;
-  }
-
-  try {
-    logger.info(`通知请求使用代理: ${proxyUrl}`);
-    return new HttpsProxyAgent(proxyUrl);
-  } catch (error) {
-    logger.warn(`创建代理 agent 失败: ${error.message}`);
-    return null;
-  }
-}
+const networkService = require('./networkService');
 
 /**
  * 获取远程通知数据
  * @returns {Promise<object|null>} 通知数据或 null
  */
 async function fetchNotifications() {
-  const url = appConfig.urls.notifications;
-  logger.info(`获取通知: ${url}`);
+  const url = new URL(appConfig.urls.notifications);
+  logger.info(`获取通知: ${url.href}`);
 
-  const agent = await getProxyAgent();
+  try {
+    const proxy = await networkService.getSystemProxy();
 
-  return new Promise((resolve) => {
-    const req = https.get(url, { agent }, (res) => {
-      // 检查 HTTP 状态码
-      if (res.statusCode < 200 || res.statusCode >= 300) {
-        logger.error(`通知请求失败: HTTP ${res.statusCode}`);
-        resolve(null);
-        return;
-      }
+    const response = await networkService.httpsRequest(
+      url.hostname,
+      parseInt(url.port) || 443,
+      url.pathname,
+      proxy,
+      15000
+    );
 
-      let data = '';
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      logger.error(`通知请求失败: HTTP ${response.statusCode}`);
+      return null;
+    }
 
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          logger.info('通知获取成功');
-          resolve(parsed);
-        } catch (error) {
-          logger.error(`通知解析失败: ${error.message}`);
-          resolve(null);
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      logger.error(`通知请求失败: ${error.message}`);
-      resolve(null);
-    });
-
-    req.setTimeout(15000, () => {
-      req.destroy();
-      logger.error('通知请求超时');
-      resolve(null);
-    });
-  });
+    const parsed = JSON.parse(response.data.toString('utf8'));
+    logger.info('通知获取成功');
+    return parsed;
+  } catch (error) {
+    logger.error(`通知请求失败: ${error.message}`);
+    return null;
+  }
 }
 
 /**

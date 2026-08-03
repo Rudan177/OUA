@@ -5,10 +5,13 @@ const { app, BrowserWindow, ipcMain, nativeTheme, Tray, Menu, globalShortcut, na
 const path = require('path');
 const fs = require('fs');
 
+// 标记开发/打包环境，供 preload 与渲染进程使用（开发环境才启用诊断等调试功能）
+process.env.OUA_DEV = app.isPackaged ? '0' : '1';
+
 const logger = require('./utils/logger');
 const pathUtils = require('./utils/pathUtils');
 const configService = require('./services/configService');
-const fileUtils = require('./utils/fileUtils');
+const appService = require('./services/appService');
 
 const { registerFileIPC } = require('./ipc/fileIPC');
 const { registerUpdateIPC } = require('./ipc/updateIPC');
@@ -219,54 +222,7 @@ ipcMain.handle('diagnose-git', async () => {
 ipcMain.handle('app-reset', async () => {
   try {
     logger.info('开始恢复出厂设置...');
-
-    // 清除临时目录
-    const tempDir = pathUtils.getTempDir();
-    try {
-      if (fs.existsSync(tempDir)) {
-        fileUtils.removeDirectory(tempDir);
-        fs.mkdirSync(tempDir, { recursive: true });
-      }
-      logger.info('临时目录已清除');
-    } catch (error) {
-      logger.warn(`清除临时目录失败: ${error.message}`);
-    }
-
-    // 清除日志目录
-    const logDir = pathUtils.getLogDir();
-    try {
-      if (fs.existsSync(logDir)) {
-        fileUtils.removeDirectory(logDir);
-        fs.mkdirSync(logDir, { recursive: true });
-      }
-      logger.info('日志目录已清除');
-    } catch (error) {
-      logger.warn(`清除日志目录失败: ${error.message}`);
-    }
-
-    // 清除缓存目录
-    const cacheDir = pathUtils.getCacheDir();
-    try {
-      if (fs.existsSync(cacheDir)) {
-        fileUtils.removeDirectory(cacheDir);
-        fs.mkdirSync(cacheDir, { recursive: true });
-      }
-      logger.info('缓存目录已清除');
-    } catch (error) {
-      logger.warn(`清除缓存目录失败: ${error.message}`);
-    }
-
-    // 删除配置文件（恢复出厂设置的关键）
-    const configPath = pathUtils.getConfigFilePath();
-    try {
-      if (fs.existsSync(configPath)) {
-        fs.unlinkSync(configPath);
-        logger.info('配置文件已删除');
-      }
-    } catch (error) {
-      logger.warn(`删除配置文件失败: ${error.message}`);
-    }
-
+    appService.cleanUserData();
     logger.info('恢复出厂设置完成，准备重启...');
 
     // 设置重启标志，防止 window-all-closed 触发 app.quit()
@@ -319,62 +275,11 @@ ipcMain.handle('app-uninstall', async () => {
   try {
     logger.info('开始一键卸载...');
 
-    // 获取安装目录
-    const installDir = configService.getInstallDir();
+    // 删除安装目录
+    appService.removeInstallDir();
 
-    // 删除安装目录（如果存在）
-    if (installDir && fs.existsSync(installDir)) {
-      try {
-        fileUtils.removeDirectory(installDir);
-        logger.info(`安装目录已删除: ${installDir}`);
-      } catch (error) {
-        logger.warn(`删除安装目录失败: ${error.message}`);
-      }
-    }
-
-    // 清除临时目录
-    const tempDir = pathUtils.getTempDir();
-    try {
-      if (fs.existsSync(tempDir)) {
-        fileUtils.removeDirectory(tempDir);
-      }
-      logger.info('临时目录已清除');
-    } catch (error) {
-      logger.warn(`清除临时目录失败: ${error.message}`);
-    }
-
-    // 清除日志目录
-    const logDir = pathUtils.getLogDir();
-    try {
-      if (fs.existsSync(logDir)) {
-        fileUtils.removeDirectory(logDir);
-      }
-      logger.info('日志目录已清除');
-    } catch (error) {
-      logger.warn(`清除日志目录失败: ${error.message}`);
-    }
-
-    // 清除缓存目录
-    const cacheDir = pathUtils.getCacheDir();
-    try {
-      if (fs.existsSync(cacheDir)) {
-        fileUtils.removeDirectory(cacheDir);
-      }
-      logger.info('缓存目录已清除');
-    } catch (error) {
-      logger.warn(`清除缓存目录失败: ${error.message}`);
-    }
-
-    // 删除配置文件
-    const configPath = pathUtils.getConfigFilePath();
-    try {
-      if (fs.existsSync(configPath)) {
-        fs.unlinkSync(configPath);
-        logger.info('配置文件已删除');
-      }
-    } catch (error) {
-      logger.warn(`删除配置文件失败: ${error.message}`);
-    }
+    // 清除临时/日志/缓存目录与配置文件
+    appService.cleanUserData();
 
     logger.info('一键卸载完成，准备退出...');
 

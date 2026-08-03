@@ -93,14 +93,6 @@ function saveConfig() {
 }
 
 /**
- * 获取配置
- * @returns {object} 配置数据
- */
-function getConfig() {
-  return { ...configData };
-}
-
-/**
  * 设置安装目录
  * @param {string} installDir - 安装目录路径
  */
@@ -136,31 +128,6 @@ function getBranch() {
 }
 
 /**
- * 检查是否首次运行
- * @returns {boolean}
- */
-function isFirstRun() {
-  return configData.isFirstRun;
-}
-
-/**
- * 设置主题
- * @param {string} theme - 主题 (system, light, dark)
- */
-function setTheme(theme) {
-  configData.theme = theme;
-  saveConfig();
-}
-
-/**
- * 获取主题设置
- * @returns {string} 主题设置
- */
-function getTheme() {
-  return configData.theme || 'system';
-}
-
-/**
  * 设置代理配置
  * @param {object} proxyConfig - 代理配置对象
  */
@@ -186,14 +153,6 @@ function getProxyConfig() {
     http: '',
     https: ''
   };
-}
-
-/**
- * 检查配置是否完整
- * @returns {boolean}
- */
-function isConfigComplete() {
-  return configData.installDir !== null;
 }
 
 /**
@@ -250,17 +209,12 @@ module.exports = {
   initConfig,
   loadConfig,
   saveConfig,
-  getConfig,
   setInstallDir,
   getInstallDir,
   setBranch,
   getBranch,
-  isFirstRun,
-  setTheme,
-  getTheme,
   setProxyConfig,
   getProxyConfig,
-  isConfigComplete,
   setStartupConfig,
   getStartupConfig,
   setHotkeyConfig,
