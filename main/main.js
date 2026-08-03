@@ -35,6 +35,47 @@ function getAppIcon() {
   return null;
 }
 
+function isSandboxUsable() {
+  if (process.platform !== 'linux') {
+    return true;
+  }
+  const sandboxBin = path.join(__dirname, '..', 'node_modules', 'electron', 'dist', 'chrome-sandbox');
+  if (!fs.existsSync(sandboxBin)) {
+    return true;
+  }
+  try {
+    const st = fs.statSync(sandboxBin);
+    return st.uid === 0 && (st.mode & 0o4000) === 0o4000;
+  } catch (error) {
+    return false;
+  }
+}
+
+function buildRelaunchArgs() {
+  if (app.isPackaged) {
+    return [];
+  }
+  const args = process.argv.slice(1);
+  if (!isSandboxUsable()) {
+    if (!args.includes('--no-sandbox')) {
+      args.push('--no-sandbox');
+    }
+    if (!args.some((a) => a.startsWith('--ozone-platform'))) {
+      args.push('--ozone-platform=x11');
+    }
+  }
+  return args;
+}
+
+function relaunchApp() {
+  isRestarting = true;
+  const args = buildRelaunchArgs();
+  app.relaunch({
+    execPath: process.execPath,
+    args: args
+  });
+}
+
 // 单实例锁 - 防止多开
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -238,7 +279,7 @@ ipcMain.handle('app-reset', async () => {
 
     // 等待一下再重启
     setTimeout(() => {
-      app.relaunch({ execPath: process.execPath });
+      relaunchApp();
       app.exit(0);
     }, 500);
 
@@ -258,7 +299,7 @@ ipcMain.handle('app-restart', async () => {
     isRestarting = true;
 
     // 先调用 relaunch 再关闭窗口
-    app.relaunch({ execPath: process.execPath });
+    relaunchApp();
 
     // 关闭窗口
     if (mainWindow) {
@@ -589,7 +630,7 @@ async function checkAndAutoUpdate() {
     logger.info('自动更新完成，准备重启应用...');
 
     isRestarting = true;
-    app.relaunch({ execPath: process.execPath });
+    relaunchApp();
     app.exit(0);
   } catch (error) {
     logger.error(`自动更新失败: ${error.message}`);

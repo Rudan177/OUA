@@ -6,7 +6,7 @@
   "main": "main/main.js",
   "scripts": {
     "prestart": "node scripts/ensure-electron.js",
-    "start": "electron .",
+    "start": "node scripts/start.js",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:linux": "npm run icons && electron-builder --linux",

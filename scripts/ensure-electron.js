@@ -16,9 +16,32 @@ function getExpectedBinary() {
   }
 }
 
+function syncPathTxt(expected) {
+  const pathTxtPath = path.join(electronDir, 'path.txt');
+  if (!fs.existsSync(pathTxtPath)) {
+    return;
+  }
+  let current = '';
+  try {
+    current = fs.readFileSync(pathTxtPath, 'utf-8').trim();
+  } catch (_) {
+    return;
+  }
+  if (current !== expected) {
+    console.log('修正 path.txt: ' + current + ' -> ' + expected);
+    try {
+      fs.writeFileSync(pathTxtPath, expected, 'utf-8');
+    } catch (err) {
+      console.warn('写入 path.txt 失败(' + err.code + '),如遇启动错误请手动更正');
+    }
+  }
+}
+
 function main() {
   const expected = getExpectedBinary();
   const binaryPath = path.join(distDir, expected);
+
+  syncPathTxt(expected);
 
   if (fs.existsSync(binaryPath)) {
     console.log('Electron 二进制正常 (' + process.platform + ' ' + process.arch + ')');
