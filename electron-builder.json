@@ -13,7 +13,9 @@
     "!build/**/*",
     "!build2/**/*",
     "!scripts/**/*",
-    "!test-api.js"
+    "!test-api.js",
+    "!README.md",
+    "!PROJECT.md"
   ],
   "copyright": "Copyright © 2026 ByRUDAN",
   "win": {
