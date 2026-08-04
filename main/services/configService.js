@@ -79,7 +79,8 @@ function getDefaultConfig() {
     hotkey: {
       enabled: false,
       openWindow: 'Ctrl+Shift+O'
-    }
+    },
+    selfUpdate: null
   };
 }
 
@@ -205,6 +206,24 @@ function getHotkeyConfig() {
   };
 }
 
+/**
+ * 获取自更新待安装状态
+ * @returns {object|null} { version, path } 或 null
+ */
+function getSelfUpdate() {
+  return configData.selfUpdate || null;
+}
+
+/**
+ * 设置自更新待安装状态
+ * @param {object|null} selfUpdate - { version, path } 或 null
+ */
+function setSelfUpdate(selfUpdate) {
+  configData.selfUpdate = selfUpdate || null;
+  saveConfig();
+  logger.info('自更新待安装状态已保存');
+}
+
 module.exports = {
   initConfig,
   loadConfig,
@@ -218,5 +237,7 @@ module.exports = {
   setStartupConfig,
   getStartupConfig,
   setHotkeyConfig,
-  getHotkeyConfig
+  getHotkeyConfig,
+  getSelfUpdate,
+  setSelfUpdate
 };

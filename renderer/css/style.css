@@ -279,10 +279,6 @@ body {
   flex-shrink: 0;
 }
 
-.Dd-MianBan {
-  flex-shrink: 0;
-}
-
 .KaPian-TouBu {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
@@ -528,7 +524,7 @@ body {
 .Aa-FenGeXian {
   height: 1px;
   background: var(--border-color);
-  margin: 20px 0 16px;
+  margin: 0 0 16px;
 }
 
 /* 开关列表 - 横向排布 */
@@ -648,19 +644,68 @@ body {
   text-decoration: underline;
 }
 
-.Cc-CaoZuo {
-  padding: 12px 20px;
-  border-top: 1px solid var(--border-color);
+.Cc-BanBen-QuYu {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.Cc-BanBen-KeDian {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.Cc-BanBen-KeDian:hover {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.BanBen-YuanDian {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger-color);
+  flex-shrink: 0;
+  animation: yuanDianShanSuo 1.5s ease-in-out infinite;
+}
+
+@keyframes yuanDianShanSuo {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+
+.Cc-XiangQing {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  padding: 2px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
 }
 
-.Cc-CaoZuo.YinCang {
-  display: none !important;
+.Cc-XiangQing .Cc-XiangMu {
+  border-bottom: 1px solid var(--border-color);
 }
 
-/* 相关链接面板 */
+.Cc-XiangQing .Cc-XiangMu:last-of-type {
+  border-bottom: none;
+}
+
+.Cc-GengXin-AnNiu {
+  width: 100%;
+  margin-top: 12px;
+  margin-bottom: 14px;
+}
+
+/* 相关链接面板 — 独立底部栏，不参与 Aa 内容区滚动 */
+.Aa-DiBu {
+  flex-shrink: 0;
+  padding: 14px 20px 16px;
+  border-top: 1px solid var(--border-color);
+}
+
 .Dd-LianJie-LieBiao {
   display: flex;
   flex-direction: row;

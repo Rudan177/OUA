@@ -15,7 +15,7 @@
     "!scripts/**/*",
     "!test-api.js"
   ],
-  "copyright": "Copyright © 2025 ByRUDAN",
+  "copyright": "Copyright © 2026 ByRUDAN",
   "win": {
     "icon": "renderer/assets/icons/icon.ico",
     "target": [
@@ -59,8 +59,8 @@
     "category": "Utility",
     "maintainer": "ByRUDAN",
     "vendor": "ByRUDAN",
-    "synopsis": "OOOInterface Update Assistant",
-    "description": "OOOInterface易升 - OOOInterface 更新助手"
+    "synopsis": "OOOInterface 易升",
+    "description": "OOOInterface易升"
   },
   "deb": {
     "packageName": "ooointerface-update-assistant",

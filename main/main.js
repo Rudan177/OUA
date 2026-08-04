@@ -139,6 +139,32 @@ function createWindow(silentMode = false) {
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
+  // 相关链接（官网/主题商店等 target="_blank"）在新窗口打开，尺寸可控
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) {
+      const appIcon = getAppIcon();
+      const child = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        minWidth: 800,
+        minHeight: 600,
+        autoHideMenuBar: true,
+        icon: appIcon,
+        backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1a1a' : '#ffffff',
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        }
+      });
+      if (appIcon) {
+        child.setIcon(appIcon);
+      }
+      child.loadURL(url);
+      return { action: 'deny' };
+    }
+    return { action: 'deny' };
+  });
+
   mainWindow.once('ready-to-show', () => {
     if (!silentMode) {
       mainWindow.show();
