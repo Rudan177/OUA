@@ -15,7 +15,7 @@ const downloadService = require('./downloadService');
 const configService = require('./configService');
 const compareVersion = require('../utils/compareVersion');
 
-const LOCAL_VERSION_FILE = path.join(__dirname, '..', 'renderer', 'js', 'version.js');
+const LOCAL_VERSION_FILE = path.join(__dirname, '..', '..', 'renderer', 'js', 'version.js');
 
 /**
  * 解析 version.js 内容，提取版本号

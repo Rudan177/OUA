@@ -7,7 +7,6 @@
   const YuanChengBanBenHang = document.getElementById('YuanCheng-BanBen-Hang');
   const YuanChengFenZhiHang = document.getElementById('YuanCheng-FenZhi-Hang');
   const GengXinZhuangTaiWenBen = document.getElementById('GengXin-ZhuangTai-WenBen');
-  const GengXinJinDuRongQi = document.getElementById('GengXin-JinDu-RongQi');
   const GengXinJinDu = document.getElementById('GengXin-JinDu');
   const AnNiuJianChaGengXin = document.getElementById('AnNiu-JianCha-GengXin');
   const AnNiuGengXin = document.getElementById('AnNiu-GengXin');
@@ -197,7 +196,6 @@
 
   async function KaiShiShouCiAnZhuang(muBiaoLuJing) {
     try {
-      GengXinJinDuRongQi.classList.remove('YinCang');
       GengXinZhuangTaiWenBen.textContent = '正在首次安装...';
       AnNiuJianChaGengXin.disabled = true;
       AnNiuGengHuanLuJing.disabled = true;
@@ -207,12 +205,10 @@
       GengXinZhuangTaiWenBen.textContent = '安装完成，正在加载...';
 
       setTimeout(() => {
-        GengXinJinDuRongQi.classList.add('YinCang');
         JianChaGengXin();
         AnNiuGengHuanLuJing.disabled = false;
       }, 1500);
     } catch (error) {
-      GengXinJinDuRongQi.classList.add('YinCang');
       GengXinZhuangTaiWenBen.textContent = '安装失败: ' + error.message;
       AnNiuJianChaGengXin.disabled = false;
       AnNiuGengHuanLuJing.disabled = false;
@@ -221,7 +217,6 @@
 
   async function KaiShiQiangZhiFuGai(muBiaoLuJing) {
     try {
-      GengXinJinDuRongQi.classList.remove('YinCang');
       GengXinZhuangTaiWenBen.textContent = '正在覆盖安装...';
       AnNiuJianChaGengXin.disabled = true;
       AnNiuGengHuanLuJing.disabled = true;
@@ -231,12 +226,10 @@
       GengXinZhuangTaiWenBen.textContent = '覆盖安装完成，正在加载...';
 
       setTimeout(() => {
-        GengXinJinDuRongQi.classList.add('YinCang');
         JianChaGengXin();
         AnNiuGengHuanLuJing.disabled = false;
       }, 1500);
     } catch (error) {
-      GengXinJinDuRongQi.classList.add('YinCang');
       GengXinZhuangTaiWenBen.textContent = '覆盖安装失败: ' + error.message;
       AnNiuJianChaGengXin.disabled = false;
       AnNiuGengHuanLuJing.disabled = false;
@@ -286,7 +279,6 @@
         return;
       }
 
-      GengXinJinDuRongQi.classList.remove('YinCang');
       GengXinZhuangTaiWenBen.textContent = '正在更新...';
       AnNiuJianChaGengXin.disabled = true;
       AnNiuGengXin.classList.add('YinCang');
@@ -297,12 +289,10 @@
       GengXinZhuangTaiWenBen.textContent = '更新完成，正在重新检测...';
 
       setTimeout(() => {
-        GengXinJinDuRongQi.classList.add('YinCang');
         JianChaGengXin();
         AnNiuGengHuanLuJing.disabled = false;
       }, 1500);
     } catch (error) {
-      GengXinJinDuRongQi.classList.add('YinCang');
       GengXinZhuangTaiWenBen.textContent = '更新失败: ' + error.message;
       AnNiuJianChaGengXin.disabled = false;
       AnNiuGengHuanLuJing.disabled = false;
@@ -502,15 +492,12 @@
         DangQianFenZhi = fenZhi;
         GengXinTongDaoAnNiu();
 
-        GengXinJinDuRongQi.classList.remove('YinCang');
         await ProgressManager.start(() => window.electronAPI.update.switchBranch(AnZhuangLuJing, fenZhi));
 
-        GengXinJinDuRongQi.classList.add('YinCang');
         await DialogManager.TiShi('切换成功', `已切换到${fenZhiMingCheng}通道`);
         JianChaGengXin();
       } catch (error) {
         console.error('切换通道失败:', error);
-        GengXinJinDuRongQi.classList.add('YinCang');
         GengXinZhuangTaiWenBen.textContent = '切换失败: ' + error.message;
         AnNiuJianChaGengXin.disabled = false;
       }
@@ -693,15 +680,12 @@
         DangQianFenZhi = shiJiFenZhi;
         GengXinTongDaoAnNiu();
 
-        GengXinJinDuRongQi.classList.remove('YinCang');
         await ProgressManager.start(() => window.electronAPI.update.switchBranch(AnZhuangLuJing, shiJiFenZhi));
 
-        GengXinJinDuRongQi.classList.add('YinCang');
         await DialogManager.TiShi('切换成功', `已切换到${fenZhiMingCheng}模式`);
         JianChaGengXin();
       } catch (error) {
         console.error('切换通道失败:', error);
-        GengXinJinDuRongQi.classList.add('YinCang');
         GengXinZhuangTaiWenBen.textContent = '切换失败: ' + error.message;
         AnNiuJianChaGengXin.disabled = false;
       }
@@ -757,18 +741,20 @@
     if (!confirmed) return;
 
     try {
-      GengXinJinDuRongQi.classList.remove('YinCang');
       GengXinZhuangTaiWenBen.textContent = '正在导入...';
       AnNiuJianChaGengXin.disabled = true;
       AnNiuGengHuanLuJing.disabled = true;
 
       await window.electronAPI.update.importLocalZip(zipLuJing);
 
-      GengXinJinDu.style.width = '100%';
+      GengXinJinDu.style.transform = 'scaleX(1)';
       GengXinZhuangTaiWenBen.textContent = '导入完成，正在刷新...';
 
+      setTimeout(() => {
+        GengXinJinDu.style.transform = 'scaleX(0)';
+      }, 300);
+
       setTimeout(async () => {
-        GengXinJinDuRongQi.classList.add('YinCang');
         AnNiuJianChaGengXin.disabled = false;
         AnNiuGengHuanLuJing.disabled = false;
 
@@ -781,7 +767,6 @@
         GengXinZhuangTaiWenBen.textContent = '导入成功！';
       }, 1500);
     } catch (error) {
-      GengXinJinDuRongQi.classList.add('YinCang');
       GengXinZhuangTaiWenBen.textContent = '导入失败: ' + error.message;
       AnNiuJianChaGengXin.disabled = false;
       AnNiuGengHuanLuJing.disabled = false;

@@ -3,8 +3,8 @@ module.exports = {
     name: "OOOInterface 易升",
     nameEn: "OOOInterface Update Assistant",
     shortName: "OUA",
-    version: "0.8.2",
-    fullVersion: "0.8.2:01-BS105",
+    version: "0.9.0",
+    fullVersion: "0.9.0:01-BS1057",
     copyright: "© 2026 ByRUDAN 保留所有权利。",
     contact: "wyjcrtu@proton.me"
   },
@@ -20,7 +20,7 @@ module.exports = {
   },
   selfUpdate: {
     repoUrl: "https://github.com/Rudan177/OUA",
-    branch: "main",
+    branch: "master",
     versionPath: "renderer/js/version.js",
     readmePath: "README.md"
   },
