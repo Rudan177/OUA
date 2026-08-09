@@ -153,11 +153,19 @@
         return;
       }
 
-      if (result.download) {
+      if (!result.download) {
         XianShiYuanDian(true);
-        SheZhiZhuangTai('新版本下载中...');
-        await XiaZaiXinBan();
+        SheZhiZhuangTai('新版本可用');
+        SheZhiAnNiuWenZi('检查更新', false);
+        return;
       }
+
+      // 弹窗提示有新版本，不自动下载
+      XianShiYuanDian(true);
+      SheZhiZhuangTai('新版本可用');
+      SheZhiAnNiuWenZi('检查更新', false);
+      await DialogManager.TiShi('发现新版本',
+        `当前版本：${result.local}\n最新版本：${result.remote}\n\n请点击「检查更新」按钮进行下载。`);
     } catch (e) {
       console.error('自动检查更新失败:', e);
     }

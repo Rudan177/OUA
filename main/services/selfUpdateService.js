@@ -79,27 +79,22 @@ async function getRemoteVersion() {
 }
 
 /**
- * 解析 README.md 中的下载链接表格
- * 表格格式: | 系统 | 类型 | 下载地址 |
+ * 解析下载链接列表
+ * 每行格式: 系统 类型 下载地址（空格分隔）
  * @param {string} content - README 内容
  * @returns {Array<{system: string, type: string, portable: boolean, url: string}>}
  */
 function parseDownloadLinks(content) {
   const links = [];
-  const rowRegex = /^\|\s*(Windows|Linux)\s*\|\s*([^|]+?)\s*\|\s*(https?:\/\/[^|\s]+)\s*\|/i;
-
   for (const line of String(content).split('\n')) {
-    const match = line.match(rowRegex);
-    if (!match) continue;
-
-    const system = match[1].trim();
-    const type = match[2].trim();
-    const url = match[3].trim();
+    const m = line.match(/^[-*+]?\s*(Windows|Linux)\s+(免安装|安装|portable|setup)\s+(https?:\/\/\S+)/i);
+    if (!m) continue;
+    const system = m[1].trim();
+    const type = m[2].trim();
+    const url = m[3].trim();
     const portable = /免安装|portable/i.test(type);
-
     links.push({ system, type, portable, url });
   }
-
   return links;
 }
 

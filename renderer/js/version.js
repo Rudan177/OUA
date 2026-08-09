@@ -4,6 +4,6 @@
  * fullVersion:  长版本号（如 0.8.2:01-BS105）
  */
 window.OUA_VERSION = {
-  version: "0.9.0",
-  fullVersion: "0.9.0:01-BS107"
+  version: "0.9.1",
+  fullVersion: "0.9.1-BS108"
 };
