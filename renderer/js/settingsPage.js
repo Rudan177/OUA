@@ -53,79 +53,79 @@ window.SettingsPage = {
     });
     option.classList.add('selected');
 
-    const rightPanelUpper = document.getElementById('right-panel-upper');
+    // 隐藏占位符，显示目标详情面板
+    const placeholder = document.querySelector('#right-panel-upper .right-panel-placeholder-container');
+    if (placeholder) placeholder.style.display = 'none';
 
-    if (target === 'daiLi') {
-      const xiangQingPanel = document.getElementById('SheZhi-XiangQing-DaiLi');
-      const clone = xiangQingPanel.cloneNode(true);
-      clone.classList.remove('YinCang');
-      clone.classList.add('active');
-      clone.id = 'right-panel-content';
+    document.querySelectorAll('.settings-detail-panel').forEach(p => {
+      p.classList.remove('active');
+    });
+    const panelId = target === 'daiLi' ? 'SheZhi-XiangQing-DaiLi' : 'SheZhi-XiangQing-XiTong';
+    const panel = document.getElementById(panelId);
+    if (panel) {
+      panel.classList.add('active');
+      // 首次展示时绑定事件
+      if (!panel.dataset.bound) {
+        this.bindPanelEvents(panel, target);
+        panel.dataset.bound = '1';
+      }
+    }
+  },
 
-      rightPanelUpper.innerHTML = '';
-      rightPanelUpper.appendChild(clone);
+  bindPanelEvents: function(panel, target) {
+    if (target !== 'daiLi') return;
 
-      const daiLiZiDongKaiGuan = clone.querySelector('#DaiLi-ZiDong-KaiGuan');
-      const daiLiShouDongRongQi = clone.querySelector('#DaiLi-ShouDong-RongQi');
-      const daiLiZiDongTiShi = clone.querySelector('#DaiLi-ZiDong-TiShi');
-      const daiLiKaiGuan = clone.querySelector('#DaiLi-KaiGuan');
-      const daiLiPeiZhiRongQi = clone.querySelector('#DaiLi-PeiZhi-RongQi');
+    const autoSwitch = panel.querySelector('#DaiLi-ZiDong-KaiGuan');
+    const manualSwitch = panel.querySelector('#DaiLi-KaiGuan');
+    const autoTip = panel.querySelector('#DaiLi-ZiDong-TiShi');
+    const configBlock = panel.querySelector('#DaiLi-PeiZhi-RongQi');
 
-      // 点击文字区域切换开关
-      const switchLabels = clone.querySelectorAll('.switch-label[data-toggle]');
-      switchLabels.forEach(label => {
-        label.addEventListener('click', (e) => {
-          // 如果点击的是 checkbox 本身，不重复处理
-          if (e.target.tagName === 'INPUT') return;
-          const targetId = label.getAttribute('data-toggle');
-          const checkbox = clone.querySelector('#' + targetId);
-          if (checkbox) {
-            checkbox.checked = !checkbox.checked;
-            checkbox.dispatchEvent(new Event('change'));
-          }
-        });
+    // 点击标签或 switch 区域时切换对应开关
+    // 点击标签或 switch 区域均可切换开关，但只处理一次
+    const handleClick = (e) => {
+      // 如果点击的是 switch 容器内的元素，由 .switch handler 处理，跳过 label handler
+      if (e.target.closest('.switch') && !e.target.closest('.s-panel-label')) {
+        e.stopPropagation();
+        const sw = e.target.closest('.switch');
+        const cb = sw.querySelector('input[type="checkbox"]');
+        if (cb) {
+          cb.checked = !cb.checked;
+          cb.dispatchEvent(new Event('change'));
+        }
+        return;
+      }
+      // label 区域点击
+      const label = e.target.closest('.s-panel-label[data-toggle]');
+      if (!label) return;
+      e.stopPropagation();
+      const cb = panel.querySelector('#' + label.dataset.toggle);
+      if (cb) {
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change'));
+      }
+    };
+
+    panel.querySelectorAll('.s-panel-label[data-toggle], .switch').forEach(el => {
+      el.addEventListener('click', handleClick);
+    });
+
+    if (autoSwitch) {
+      autoSwitch.addEventListener('change', () => {
+        const isAuto = autoSwitch.checked;
+        if (autoTip) autoTip.classList.toggle('YinCang', !isAuto);
+        if (configBlock) configBlock.classList.add('YinCang');
+        // 整个手动区一并隐藏
+        const manualGroup = panel.querySelector('#DaiLi-ShouDong-RongQi');
+        if (manualGroup) manualGroup.classList.toggle('YinCang', isAuto);
       });
+    }
 
-      if (daiLiZiDongKaiGuan) {
-        daiLiZiDongKaiGuan.addEventListener('change', () => {
-          if (daiLiZiDongKaiGuan.checked) {
-            daiLiShouDongRongQi.classList.add('YinCang');
-            daiLiZiDongTiShi.classList.remove('YinCang');
-          } else {
-            daiLiShouDongRongQi.classList.remove('YinCang');
-            daiLiZiDongTiShi.classList.add('YinCang');
-          }
-        });
-      }
-
-      if (daiLiKaiGuan) {
-        daiLiKaiGuan.addEventListener('change', () => {
-          if (daiLiKaiGuan.checked) {
-            daiLiPeiZhiRongQi.classList.remove('YinCang');
-          } else {
-            daiLiPeiZhiRongQi.classList.add('YinCang');
-          }
-        });
-      }
-    } else if (target === 'xitong') {
-      const xiangQingPanel = document.getElementById('SheZhi-XiangQing-XiTong');
-      const clone = xiangQingPanel.cloneNode(true);
-      clone.classList.remove('YinCang');
-      clone.classList.add('active');
-      clone.id = 'right-panel-content';
-
-      rightPanelUpper.innerHTML = '';
-      rightPanelUpper.appendChild(clone);
-
-      const chongQiBtn = clone.querySelector('#SheZhi-ChongQi');
-      if (chongQiBtn) {
-        chongQiBtn.addEventListener('click', () => this.zhiXingChongQi());
-      }
-
-      const chongZhiBtn = clone.querySelector('#SheZhi-ChongZhi');
-      if (chongZhiBtn) {
-        chongZhiBtn.addEventListener('click', () => this.zhiXingChongZhi());
-      }
+    if (manualSwitch) {
+      manualSwitch.addEventListener('change', () => {
+        if (configBlock) {
+          configBlock.classList.toggle('YinCang', !manualSwitch.checked);
+        }
+      });
     }
   },
 
@@ -184,53 +184,38 @@ window.SettingsPage = {
 
   tianChongDaiLiPeiZhi: function(proxyConfig) {
     try {
-      const rightPanelContent = document.getElementById('right-panel-content');
-      if (!rightPanelContent) return;
+      // 取当前激活的代理面板（而非已销毁的 clone）
+      const panel = document.querySelector('.settings-detail-panel.active');
+      if (!panel) return;
 
-      const daiLiZiDongKaiGuan = rightPanelContent.querySelector('#DaiLi-ZiDong-KaiGuan');
-      const daiLiShouDongRongQi = rightPanelContent.querySelector('#DaiLi-ShouDong-RongQi');
-      const daiLiZiDongTiShi = rightPanelContent.querySelector('#DaiLi-ZiDong-TiShi');
-      const daiLiKaiGuan = rightPanelContent.querySelector('#DaiLi-KaiGuan');
-      const daiLiIP = rightPanelContent.querySelector('#DaiLi-IP');
-      const daiLiDuanKou = rightPanelContent.querySelector('#DaiLi-DuanKou');
-      const daiLiPeiZhiRongQi = rightPanelContent.querySelector('#DaiLi-PeiZhi-RongQi');
+      const autoSwitch = panel.querySelector('#DaiLi-ZiDong-KaiGuan');
+      const manualSwitch = panel.querySelector('#DaiLi-KaiGuan');
+      const autoTip = panel.querySelector('#DaiLi-ZiDong-TiShi');
+      const configBlock = panel.querySelector('#DaiLi-PeiZhi-RongQi');
+      const ipInput = panel.querySelector('#DaiLi-IP');
+      const portInput = panel.querySelector('#DaiLi-DuanKou');
 
-      const autoConfigure = proxyConfig.autoConfigure || false;
+      const autoOn = proxyConfig.autoConfigure || false;
 
-      if (daiLiZiDongKaiGuan) {
-        daiLiZiDongKaiGuan.checked = autoConfigure;
-      }
+      if (autoSwitch) autoSwitch.checked = autoOn;
+      if (manualSwitch) manualSwitch.checked = proxyConfig.enabled || false;
 
-      if (autoConfigure) {
-        if (daiLiShouDongRongQi) daiLiShouDongRongQi.classList.add('YinCang');
-        if (daiLiZiDongTiShi) daiLiZiDongTiShi.classList.remove('YinCang');
+      if (autoOn) {
+        if (configBlock) configBlock.classList.add('YinCang');
+        if (autoTip) autoTip.classList.remove('YinCang');
+        const manualGroup = panel.querySelector('#DaiLi-ShouDong-RongQi');
+        if (manualGroup) manualGroup.classList.add('YinCang');
       } else {
-        if (daiLiShouDongRongQi) daiLiShouDongRongQi.classList.remove('YinCang');
-        if (daiLiZiDongTiShi) daiLiZiDongTiShi.classList.add('YinCang');
-      }
-
-      if (daiLiKaiGuan) {
-        daiLiKaiGuan.checked = proxyConfig.enabled;
+        if (autoTip) autoTip.classList.add('YinCang');
+        const manualGroup = panel.querySelector('#DaiLi-ShouDong-RongQi');
+        if (manualGroup) manualGroup.classList.remove('YinCang');
+        if (configBlock) configBlock.classList.toggle('YinCang', !proxyConfig.enabled);
       }
 
       const proxyUrl = proxyConfig.http || '';
-      const urlWithoutProtocol = proxyUrl.replace(/^https?:\/\//, '');
-      const parts = urlWithoutProtocol.split(':');
-
-      if (daiLiIP) {
-        daiLiIP.value = parts[0] || '';
-      }
-      if (daiLiDuanKou) {
-        daiLiDuanKou.value = parts[1] || '';
-      }
-
-      if (daiLiPeiZhiRongQi) {
-        if (proxyConfig.enabled) {
-          daiLiPeiZhiRongQi.classList.remove('YinCang');
-        } else {
-          daiLiPeiZhiRongQi.classList.add('YinCang');
-        }
-      }
+      const parts = proxyUrl.replace(/^https?:\/\//, '').split(':');
+      if (ipInput) ipInput.value = parts[0] || '';
+      if (portInput) portInput.value = parts[1] || '';
     } catch (error) {
       console.error('填充代理配置失败:', error);
     }
@@ -239,50 +224,51 @@ window.SettingsPage = {
   guanBiSheZhi: function() {
     const sheZhiZheZhao = document.getElementById('SheZhi-ZheZhao');
     sheZhiZheZhao.classList.remove('JiHuo');
+    // 等待退出过渡（300ms）完成后再隐藏元素，避免 display:none 打断动画
     setTimeout(() => {
       sheZhiZheZhao.classList.add('YinCang');
-    }, 300);
+    }, 320);
 
     document.querySelectorAll('.settings-menu-option').forEach(opt => {
       opt.classList.remove('selected');
     });
 
-    const rightPanelUpper = document.getElementById('right-panel-upper');
-    rightPanelUpper.innerHTML = '<div class="right-panel-placeholder-container"><div class="right-panel-placeholder">选择设置项查看详情</div></div>';
+    // 隐藏所有详情面板，恢复占位符
+    document.querySelectorAll('.settings-detail-panel').forEach(p => {
+      p.classList.remove('active');
+    });
+    const placeholder = document.querySelector('#right-panel-upper .right-panel-placeholder-container');
+    if (placeholder) placeholder.style.display = '';
   },
 
   yingYongSheZhi: async function() {
     try {
-      const rightPanelContent = document.getElementById('right-panel-content');
-      if (!rightPanelContent) {
+      const panel = document.querySelector('.settings-detail-panel.active');
+      if (!panel) {
         this.guanBiSheZhi();
         return;
       }
 
-      const daiLiZiDongKaiGuan = rightPanelContent.querySelector('#DaiLi-ZiDong-KaiGuan');
-      const daiLiKaiGuan = rightPanelContent.querySelector('#DaiLi-KaiGuan');
-      const daiLiIP = rightPanelContent.querySelector('#DaiLi-IP');
-      const daiLiDuanKou = rightPanelContent.querySelector('#DaiLi-DuanKou');
-
-      const autoConfigure = daiLiZiDongKaiGuan ? daiLiZiDongKaiGuan.checked : false;
-
-      const ip = daiLiIP ? daiLiIP.value.trim() : '';
-      const port = daiLiDuanKou ? daiLiDuanKou.value.trim() : '';
-
-      let proxyUrl = '';
-      if (ip && port) {
-        proxyUrl = 'http://' + ip + ':' + port;
-      }
+      const autoSwitch = panel.querySelector('#DaiLi-ZiDong-KaiGuan');
+      const manualSwitch = panel.querySelector('#DaiLi-KaiGuan');
+      const ipInput = panel.querySelector('#DaiLi-IP');
+      const portInput = panel.querySelector('#DaiLi-DuanKou');
 
       const proxyConfig = {
-        autoConfigure: autoConfigure,
-        enabled: daiLiKaiGuan ? daiLiKaiGuan.checked : false,
-        http: proxyUrl,
-        https: proxyUrl
+        autoConfigure: autoSwitch ? autoSwitch.checked : false,
+        enabled: manualSwitch ? manualSwitch.checked : false,
+        http: '',
+        https: ''
       };
 
-      await window.electronAPI.settings.setProxyConfig(proxyConfig);
+      const ip = ipInput ? ipInput.value.trim() : '';
+      const port = portInput ? portInput.value.trim() : '';
+      if (ip && port) {
+        proxyConfig.http = 'http://' + ip + ':' + port;
+        proxyConfig.https = proxyConfig.http;
+      }
 
+      await window.electronAPI.settings.setProxyConfig(proxyConfig);
       this.guanBiSheZhi();
     } catch (error) {
       console.error('保存设置失败:', error);

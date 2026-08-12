@@ -197,6 +197,11 @@
         anNiuGengXin.addEventListener('click', JianChaGengXin);
       }
 
+      const anNiuCcSheZhi = YuanJianShi('AnNiu-Cc-SheZhi');
+      if (anNiuCcSheZhi) {
+        anNiuCcSheZhi.addEventListener('click', () => window.SettingsPage.daKaiSheZhi());
+      }
+
       // 打开即自动检查更新
       ZiDongJianCha();
     }

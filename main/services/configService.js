@@ -130,14 +130,17 @@ function getBranch() {
 
 /**
  * 设置代理配置
+ * 只覆盖传入的字段，未传入的字段保留原有值，防止意外清空配置。
  * @param {object} proxyConfig - 代理配置对象
  */
 function setProxyConfig(proxyConfig) {
+  if (!proxyConfig || typeof proxyConfig !== 'object') return;
   configData.proxy = {
-    autoConfigure: proxyConfig.autoConfigure || false,
-    enabled: proxyConfig.enabled || false,
-    http: proxyConfig.http || '',
-    https: proxyConfig.https || ''
+    ...configData.proxy,
+    autoConfigure: proxyConfig.autoConfigure ?? configData.proxy.autoConfigure,
+    enabled: proxyConfig.enabled ?? configData.proxy.enabled,
+    http: proxyConfig.http ?? configData.proxy.http,
+    https: proxyConfig.https ?? configData.proxy.https
   };
   saveConfig();
   logger.info('代理配置已保存');

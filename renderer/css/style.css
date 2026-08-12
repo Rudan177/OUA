@@ -494,13 +494,7 @@ body {
   border-color: #008C00 !important;
 }
 
-.AnNiu-ZuHe .AnNiu-SheZhi .AnNiu-TuBiao {
-  transition: transform 0.3s ease;
-}
-
-.AnNiu-ZuHe .AnNiu-SheZhi:hover .AnNiu-TuBiao {
-  transform: rotate(90deg);
-}
+/* AnNiu-ZuHe 内设置按钮图标不做旋转动画 */
 
 /* 设置面板 — 平滑进退动画 */
 #SheDing-MianBan {
@@ -696,10 +690,44 @@ body {
 }
 
 .Cc-GengXin-AnNiu {
-  width: 100%;
+  flex: 1;
   margin-top: 12px;
   margin-bottom: 14px;
 }
+
+.Cc-GengXin-ZuHe {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.Cc-SheZhi-AnNiu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 36px;
+  margin-top: 12px;
+  margin-bottom: 14px;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.Cc-SheZhi-AnNiu:hover {
+  background: #008C00;
+  color: #fff;
+  border-color: #008C00;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 174, 0, 0.3);
+}
+
+/* Cc-SheZhi-AnNiu 图标不做旋转动画 */
 
 /* 相关链接面板 — 独立底部栏，不参与 Aa 内容区滚动 */
 .Aa-DiBu {
