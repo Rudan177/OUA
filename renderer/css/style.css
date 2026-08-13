@@ -765,7 +765,6 @@ html[data-theme="dark"] .TuoZhua-NeiRong {
   font-size: 13px;
   font-weight: 500;
   text-decoration: none;
-  overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid var(--border-color);
 }
@@ -796,7 +795,7 @@ html[data-theme="dark"] .TuoZhua-NeiRong {
   font-size: 13px;
   font-weight: 500;
   color: inherit;
-  line-height: 1;
+  line-height: 20px;
   white-space: nowrap;
   max-width: 0;
   opacity: 0;
