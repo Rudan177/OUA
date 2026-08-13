@@ -45,7 +45,7 @@ window.SettingsPage = {
     });
   },
 
-  zhanKaiXiangQing: function(option) {
+  zhanKaiXiangQing: async function(option) {
     const target = option.dataset.target;
 
     document.querySelectorAll('.settings-menu-option').forEach(opt => {
@@ -60,7 +60,7 @@ window.SettingsPage = {
     document.querySelectorAll('.settings-detail-panel').forEach(p => {
       p.classList.remove('active');
     });
-    const panelId = target === 'daiLi' ? 'SheZhi-XiangQing-DaiLi' : 'SheZhi-XiangQing-XiTong';
+    const panelId = target === 'daiLi' ? 'SheZhi-XiangQing-DaiLi' : target === 'keFangWenXing' ? 'SheZhi-XiangQing-KeFangWenXing' : 'SheZhi-XiangQing-XiTong';
     const panel = document.getElementById(panelId);
     if (panel) {
       panel.classList.add('active');
@@ -69,12 +69,26 @@ window.SettingsPage = {
         this.bindPanelEvents(panel, target);
         panel.dataset.bound = '1';
       }
+      // 每次打开时实时读取最新配置（避免缓存过期）
+      if (target === 'daiLi') {
+        const proxyConfig = await window.electronAPI.settings.getProxyConfig();
+        this.tianChongDaiLiPeiZhi(proxyConfig);
+      } else if (target === 'keFangWenXing') {
+        const accessibilityConfig = await window.electronAPI.settings.getAccessibilityConfig();
+        this.tianChongKeFangWenXingPeiZhi(accessibilityConfig);
+      }
     }
   },
 
   bindPanelEvents: function(panel, target) {
-    if (target !== 'daiLi') return;
+    if (target === 'daiLi') {
+      this._bindDaiLiPanel(panel);
+    } else if (target === 'keFangWenXing') {
+      this._bindKeFangWenXingPanel(panel);
+    }
+  },
 
+  _bindDaiLiPanel: function(panel) {
     const autoSwitch = panel.querySelector('#DaiLi-ZiDong-KaiGuan');
     const manualSwitch = panel.querySelector('#DaiLi-KaiGuan');
     const autoTip = panel.querySelector('#DaiLi-ZiDong-TiShi');
@@ -129,6 +143,72 @@ window.SettingsPage = {
     }
   },
 
+  _bindKeFangWenXingPanel: function(panel) {
+    const mainSwitch = panel.querySelector('#KeFangWen-XinXi-KaiGuan');
+    const tip = panel.querySelector('#KeFangWen-XinXi-TiShi');
+    const configBlock = panel.querySelector('#KeFangWen-XinXi-PeiZhi-RongQi');
+
+    const handleClick = (e) => {
+      if (e.target.closest('.switch') && !e.target.closest('.s-panel-label')) {
+        e.stopPropagation();
+        const sw = e.target.closest('.switch');
+        const cb = sw.querySelector('input[type="checkbox"]');
+        if (cb && !cb.disabled) {
+          cb.checked = !cb.checked;
+          cb.dispatchEvent(new Event('change'));
+        }
+        return;
+      }
+      const label = e.target.closest('.s-panel-label[data-toggle]');
+      if (!label) return;
+      e.stopPropagation();
+      const cb = panel.querySelector('#' + label.dataset.toggle);
+      if (cb && !cb.disabled) {
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change'));
+      }
+    };
+
+    panel.querySelectorAll('.s-panel-label[data-toggle], .switch').forEach(el => {
+      el.addEventListener('click', handleClick);
+    });
+
+    if (mainSwitch) {
+      mainSwitch.addEventListener('change', () => {
+        const isOn = mainSwitch.checked;
+        if (tip) tip.classList.toggle('YinCang', !isOn);
+        if (configBlock) configBlock.classList.toggle('YinCang', !isOn);
+      });
+    }
+  },
+
+  tianChongKeFangWenXingPeiZhi: function(accessibilityConfig) {
+    try {
+      const panel = document.querySelector('.settings-detail-panel#SheZhi-XiangQing-KeFangWenXing');
+      if (!panel) return;
+
+      const mainSwitch = panel.querySelector('#KeFangWen-XinXi-KaiGuan');
+      const tip = panel.querySelector('#KeFangWen-XinXi-TiShi');
+      const configBlock = panel.querySelector('#KeFangWen-XinXi-PeiZhi-RongQi');
+      const portInput = panel.querySelector('#KeFangWen-DuanKou');
+      const externalSwitch = panel.querySelector('#KeFangWen-WaiBu-KaiGuan');
+
+      if (mainSwitch) mainSwitch.checked = accessibilityConfig.enabled || false;
+      if (portInput) portInput.value = accessibilityConfig.port || 8964;
+      if (externalSwitch) externalSwitch.checked = accessibilityConfig.allowExternal || false;
+
+      if (accessibilityConfig.enabled) {
+        if (tip) tip.classList.remove('YinCang');
+        if (configBlock) configBlock.classList.remove('YinCang');
+      } else {
+        if (tip) tip.classList.add('YinCang');
+        if (configBlock) configBlock.classList.add('YinCang');
+      }
+    } catch (error) {
+      console.error('填充可访问性配置失败:', error);
+    }
+  },
+
   zhiXingChongQi: async function() {
     const confirmed = await window.DialogManager.QueRen('确认重启', '确定要关闭并重启应用吗？');
     if (confirmed) {
@@ -156,9 +236,6 @@ window.SettingsPage = {
 
   daKaiSheZhi: async function() {
     try {
-      // 先获取代理配置
-      const proxyConfig = await window.electronAPI.settings.getProxyConfig();
-
       // 打开设置遮罩层
       const sheZhiZheZhao = document.getElementById('SheZhi-ZheZhao');
       sheZhiZheZhao.classList.remove('YinCang');
@@ -169,13 +246,8 @@ window.SettingsPage = {
       // 自动选中第一个菜单项（代理设置）
       const firstMenuOption = document.querySelector('.settings-menu-option[data-target="daiLi"]');
       if (firstMenuOption) {
-        // 选中菜单并展开面板
-        this.zhanKaiXiangQing(firstMenuOption);
-
-        // 等待 DOM 更新后再设置值
-        setTimeout(() => {
-          this.tianChongDaiLiPeiZhi(proxyConfig);
-        }, 50);
+        // zhanKaiXiangQing 内部会实时读取最新配置并填充
+        await this.zhanKaiXiangQing(firstMenuOption);
       }
     } catch (error) {
       console.error('加载设置失败:', error);
@@ -249,6 +321,7 @@ window.SettingsPage = {
         return;
       }
 
+      // 处理代理配置
       const autoSwitch = panel.querySelector('#DaiLi-ZiDong-KaiGuan');
       const manualSwitch = panel.querySelector('#DaiLi-KaiGuan');
       const ipInput = panel.querySelector('#DaiLi-IP');
@@ -269,6 +342,23 @@ window.SettingsPage = {
       }
 
       await window.electronAPI.settings.setProxyConfig(proxyConfig);
+
+      // 处理可访问性配置
+      const keFangWenPanel = document.querySelector('#SheZhi-XiangQing-KeFangWenXing');
+      if (keFangWenPanel && keFangWenPanel.classList.contains('active')) {
+        const mainSwitch = keFangWenPanel.querySelector('#KeFangWen-XinXi-KaiGuan');
+        const portInput2 = keFangWenPanel.querySelector('#KeFangWen-DuanKou');
+        const externalSwitch = keFangWenPanel.querySelector('#KeFangWen-WaiBu-KaiGuan');
+
+        const accessibilityConfig = {
+          enabled: mainSwitch ? mainSwitch.checked : false,
+          port: portInput2 ? parseInt(portInput2.value, 10) || 8964 : 8964,
+          allowExternal: externalSwitch ? externalSwitch.checked : false
+        };
+
+        await window.electronAPI.settings.setAccessibilityConfig(accessibilityConfig);
+      }
+
       this.guanBiSheZhi();
     } catch (error) {
       console.error('保存设置失败:', error);
