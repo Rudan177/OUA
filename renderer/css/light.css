@@ -1,5 +1,6 @@
 /**
- * 浅色主题
+ * 浅色主题变量
+ * 作为默认（html[data-theme="light"] 或未设置时）生效
  */
 :root {
   --primary-color: #00AE00;
@@ -7,19 +8,21 @@
   --primary-light: #00AE90;
   --accent-color: #10BF90;
   --surface-color: #FFFFFF;
-  --background-color: #F5F5F5;
-  --surface-variant: #F0F0F0;
-  --text-primary: #000000;
-  --text-secondary: #424242;
+  --background-color: #F0F2F5;
+  --surface-variant: #E8EAED;
+  --text-primary: #1A1A1A;
+  --text-secondary: #4A4A4A;
   --text-muted: #757575;
   --divider-color: #E0E0E0;
-  --border-color: rgba(0, 0, 0, 0.31);
-  --card-bg: rgba(255, 255, 255, 0.115);
-  --input-bg: rgba(255, 255, 255, 0.115);
-  --dialog-bg: rgba(255, 255, 255, 0.35);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --border-color: rgba(0, 0, 0, 0.1);
+  /* 玻璃拟态层 — 浅色需要更高的不透明度才能看清 */
+  --card-bg: rgba(255, 255, 255, 0.12);
+  --input-bg: rgba(255, 255, 255, 0.15);
+  --dialog-bg: rgba(255, 255, 255, 0.4);
+  /* 阴影 — 浅色用较轻的阴影 */
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
@@ -28,4 +31,3 @@
   --danger-dark: #c82333;
   --danger-text: #ffffff;
 }
-

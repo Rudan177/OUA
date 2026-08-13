@@ -104,5 +104,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('self-update-progress', handler);
       return () => ipcRenderer.removeListener('self-update-progress', handler);
     }
+  },
+  theme: {
+    onThemeChanged: (callback) => {
+      const handler = (_event, theme) => callback(theme);
+      ipcRenderer.on('theme-changed', handler);
+      return () => ipcRenderer.removeListener('theme-changed', handler);
+    }
   }
 });

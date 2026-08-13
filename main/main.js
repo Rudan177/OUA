@@ -167,6 +167,9 @@ function createWindow(silentMode = false) {
   });
 
   mainWindow.once('ready-to-show', () => {
+    // 渲染进程挂载后立即发送当前主题，避免依赖 JS matchMedia 的异步时序
+    const currentTheme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+    mainWindow.webContents.send('theme-changed', currentTheme);
     if (!silentMode) {
       mainWindow.show();
     }

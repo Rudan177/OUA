@@ -124,12 +124,12 @@ body {
 }
 
 .AnNiu-Wei-Xian {
-  background: #dc3545;
-  color: #ffffff;
+  background: var(--danger-color);
+  color: var(--danger-text);
 }
 
 .AnNiu-WeiXian:hover {
-  background: #c82333;
+  background: var(--danger-dark);
   box-shadow: var(--shadow-sm);
 }
 
@@ -164,7 +164,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 174, 0, 0.12);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -172,6 +172,10 @@ body {
   z-index: 10000;
   opacity: 0;
   transition: opacity 0.25s ease;
+}
+
+html[data-theme="dark"] #TuoZhua-ZhaoCeng {
+  background: rgba(0, 0, 0, 0.5);
 }
 
 #TuoZhua-ZhaoCeng.TuoZhua-HuoYue {
@@ -184,6 +188,10 @@ body {
 
 .TuoZhua-NeiRong {
   text-align: center;
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .TuoZhua-NeiRong {
   color: #ffffff;
 }
 
@@ -489,9 +497,9 @@ body {
 }
 
 .AnNiu-ZuHe .AnNiu-SheZhi:hover {
-  background: #008C00 !important;
+  background: var(--primary-dark) !important;
   color: white !important;
-  border-color: #008C00 !important;
+  border-color: var(--primary-dark) !important;
 }
 
 /* AnNiu-ZuHe 内设置按钮图标不做旋转动画 */
@@ -720,9 +728,9 @@ body {
 }
 
 .Cc-SheZhi-AnNiu:hover {
-  background: #008C00;
+  background: var(--primary-dark);
   color: #fff;
-  border-color: #008C00;
+  border-color: var(--primary-dark);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 174, 0, 0.3);
 }
@@ -763,9 +771,9 @@ body {
 }
 
 .Dd-LianJie-Xiang:hover {
-  background: #008C00;
+  background: var(--primary-dark);
   color: white;
-  border-color: #008C00;
+  border-color: var(--primary-dark);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 174, 0, 0.3);
 }
@@ -819,13 +827,13 @@ body {
 
 .AnNiu-ChongZhi {
   width: 100%;
-  background: #dc3545;
-  color: #ffffff;
+  background: var(--danger-color);
+  color: var(--danger-text);
   font-weight: 500;
 }
 
 .AnNiu-ChongZhi:hover {
-  background: #c82333;
+  background: var(--danger-dark);
 }
 
 .AnNiu-ChongZhi .AnNiu-TuBiao {
@@ -851,7 +859,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 174, 0, 0.1);
   backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   display: flex;
@@ -862,15 +870,19 @@ body {
   transition: opacity 0.25s ease;
 }
 
+html[data-theme="dark"] .DuiHua-ZheZhao {
+  background: rgba(0, 0, 0, 0.45);
+}
+
 .DuiHua-ZheZhao.JiHuo {
   opacity: 1;
 }
 
 .DuiHua-Kuang {
-  background: var(--dialog-bg);
+  background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(32px) saturate(1.4);
   -webkit-backdrop-filter: blur(32px) saturate(1.4);
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 14px;
   width: 90%;
   max-width: 380px;
@@ -879,6 +891,19 @@ body {
   opacity: 0;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
   overflow: hidden;
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+html[data-theme="dark"] .DuiHua-Kuang {
+  background: rgba(20, 20, 20, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .DuiHua-ZheZhao.JiHuo .DuiHua-Kuang {
@@ -1025,7 +1050,7 @@ body {
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 174, 0, 0.1);
   backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   display: flex;
@@ -1034,6 +1059,10 @@ body {
   z-index: 9999;
   opacity: 0;
   transition: opacity 0.25s ease;
+}
+
+html[data-theme="dark"] .RenJi-YanZheng-ZheZhao {
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .RenJi-YanZheng-ZheZhao.JiHuo {
@@ -1045,7 +1074,7 @@ body {
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 174, 0, 0.1);
   backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   display: flex;
@@ -1056,15 +1085,19 @@ body {
   transition: opacity 0.25s ease;
 }
 
+html[data-theme="dark"] .JianCe-ZheZhao {
+  background: rgba(0, 0, 0, 0.45);
+}
+
 .JianCe-ZheZhao.JiHuo {
   opacity: 1;
 }
 
 .JianCe-ZheZhao .JianCe-DuiHua {
-  background: var(--dialog-bg);
+  background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(32px) saturate(1.4);
   -webkit-backdrop-filter: blur(32px) saturate(1.4);
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 14px;
   width: 90%;
   max-width: 420px;
@@ -1072,6 +1105,19 @@ body {
   opacity: 0;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
   overflow: hidden;
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+html[data-theme="dark"] .JianCe-ZheZhao .JianCe-DuiHua {
+  background: rgba(20, 20, 20, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .JianCe-ZheZhao.JiHuo .JianCe-DuiHua {
@@ -1169,10 +1215,10 @@ body {
 
 /* ---- 第二步：滑块验证 ---- */
 .HuaKuai-DuiHua {
-  background: var(--dialog-bg);
+  background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(32px) saturate(1.4);
   -webkit-backdrop-filter: blur(32px) saturate(1.4);
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 14px;
   padding: 28px;
   width: 90%;
@@ -1180,6 +1226,19 @@ body {
   transform: scale(0.95);
   opacity: 0;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+html[data-theme="dark"] .HuaKuai-DuiHua {
+  background: rgba(20, 20, 20, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .RenJi-YanZheng-ZheZhao.JiHuo .HuaKuai-DuiHua {
@@ -1209,11 +1268,9 @@ body {
   pointer-events: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  .HuaKuai-QueKou {
-    background: var(--background-color);
-    border-color: rgba(255, 255, 255, 0.3);
-  }
+html[data-theme="dark"] .HuaKuai-QueKou {
+  background: var(--background-color);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .HuaKuai-PinTu {
@@ -1345,28 +1402,36 @@ body {
   user-select: none;
   padding: 10px 14px;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .ZuiHou-QueRen-FuXuanKuang input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: #ffffff;
+  accent-color: var(--primary-color);
   cursor: pointer;
   flex-shrink: 0;
 }
 
 .ZuiHou-QueRen-FuXuanKuang label {
   font-size: 14px;
-  color: #ffffff;
+  color: var(--text-primary);
   cursor: pointer;
   line-height: 1.4;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="dark"] .ZuiHou-QueRen-FuXuanKuang {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .ZuiHou-QueRen-FuXuanKuang label {
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .ZuiHou-QueRen-AnNiu:disabled {
-  background: rgba(100, 100, 100, 0.5) !important;
-  color: rgba(255, 255, 255, 0.4);
+  background: var(--surface-variant) !important;
+  color: var(--text-muted);
   cursor: not-allowed;
   transform: none;
   border-color: transparent;
