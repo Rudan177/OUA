@@ -13,8 +13,8 @@ html[data-theme="dark"] {
   --text-primary: #E8E8E8;
   --text-secondary: #B0B0B0;
   --text-muted: #808080;
-  --divider-color: #333333;
-  --border-color: rgba(255, 255, 255, 0.08);
+  --divider-color: rgba(255, 255, 255, 0.18);
+  --border-color: rgba(255, 255, 255, 0.3);
   /* 玻璃拟态层 — 深色用较暗的基底 */
   --card-bg: rgba(30, 30, 30, 0.12);
   --input-bg: rgba(42, 42, 42, 0.15);

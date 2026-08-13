@@ -527,7 +527,7 @@ html[data-theme="dark"] .TuoZhua-NeiRong {
 /* 分隔线 */
 .Aa-FenGeXian {
   height: 1px;
-  background: var(--border-color);
+  background: var(--divider-color);
   margin: 0 0 16px;
 }
 

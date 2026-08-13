@@ -14,7 +14,7 @@
   --text-secondary: #4A4A4A;
   --text-muted: #757575;
   --divider-color: #E0E0E0;
-  --border-color: rgba(0, 0, 0, 0.1);
+  --border-color: rgba(0, 0, 0, 0.4);
   /* 玻璃拟态层 — 浅色需要更高的不透明度才能看清 */
   --card-bg: rgba(255, 255, 255, 0.12);
   --input-bg: rgba(255, 255, 255, 0.15);
