@@ -1,4 +1,4 @@
 window.OUA_VERSION = {
-  version: "0.9.2",
-  fullVersion: "0.9.2-BS109"
+  version: "0.9.3",
+  fullVersion: "0.9.3-BS110"
 };

@@ -1,6 +1,37 @@
 window.SettingsPage = {
   init: function() {
     this.bindEvents();
+    this._subscribeServerStatus();
+  },
+
+  _subscribeServerStatus: function() {
+    // 订阅主进程推送的 HTTP server 状态变更
+    if (window.electronAPI && window.electronAPI.httpServer) {
+      window.electronAPI.httpServer.onStatusChange((status) => {
+        this._updateServerStatusIndicator(status);
+      });
+    }
+    // 初始化时立即获取一次状态
+    if (window.electronAPI && window.electronAPI.httpServer) {
+      window.electronAPI.httpServer.getStatus().then((status) => {
+        this._updateServerStatusIndicator(status);
+      }).catch(() => {});
+    }
+  },
+
+  _updateServerStatusIndicator: function(status) {
+    const dot = document.getElementById('KeFangWen-ZhuangTai-Dian');
+    const text = document.getElementById('KeFangWen-ZhuangTai-WenBen');
+    if (!dot || !text) return;
+
+    if (status.enabled) {
+      dot.classList.add('YunXingZhong');
+      const host = status.host === '0.0.0.0' ? '局域网' : '本机';
+      text.textContent = `服务器运行中 (${host}:${status.port})`;
+    } else {
+      dot.classList.remove('YunXingZhong');
+      text.textContent = '服务器未运行';
+    }
   },
 
   bindEvents: function() {
@@ -91,7 +122,6 @@ window.SettingsPage = {
   _bindDaiLiPanel: function(panel) {
     const autoSwitch = panel.querySelector('#DaiLi-ZiDong-KaiGuan');
     const manualSwitch = panel.querySelector('#DaiLi-KaiGuan');
-    const autoTip = panel.querySelector('#DaiLi-ZiDong-TiShi');
     const configBlock = panel.querySelector('#DaiLi-PeiZhi-RongQi');
 
     // 点击标签或 switch 区域时切换对应开关
@@ -124,28 +154,36 @@ window.SettingsPage = {
     });
 
     if (autoSwitch) {
-      autoSwitch.addEventListener('change', () => {
+      autoSwitch.addEventListener('change', async () => {
         const isAuto = autoSwitch.checked;
-        if (autoTip) autoTip.classList.toggle('YinCang', !isAuto);
         if (configBlock) configBlock.classList.add('YinCang');
         // 整个手动区一并隐藏
         const manualGroup = panel.querySelector('#DaiLi-ShouDong-RongQi');
         if (manualGroup) manualGroup.classList.toggle('YinCang', isAuto);
+        // 立即保存，避免关闭弹窗后状态丢失
+        await window.electronAPI.settings.setProxyConfig({
+          autoConfigure: isAuto,
+          enabled: manualSwitch ? manualSwitch.checked : false
+        });
       });
     }
 
     if (manualSwitch) {
-      manualSwitch.addEventListener('change', () => {
+      manualSwitch.addEventListener('change', async () => {
         if (configBlock) {
           configBlock.classList.toggle('YinCang', !manualSwitch.checked);
         }
+        // 立即保存，避免关闭弹窗后状态丢失
+        await window.electronAPI.settings.setProxyConfig({
+          autoConfigure: autoSwitch ? autoSwitch.checked : false,
+          enabled: manualSwitch.checked
+        });
       });
     }
   },
 
   _bindKeFangWenXingPanel: function(panel) {
     const mainSwitch = panel.querySelector('#KeFangWen-XinXi-KaiGuan');
-    const tip = panel.querySelector('#KeFangWen-XinXi-TiShi');
     const configBlock = panel.querySelector('#KeFangWen-XinXi-PeiZhi-RongQi');
 
     const handleClick = (e) => {
@@ -176,8 +214,59 @@ window.SettingsPage = {
     if (mainSwitch) {
       mainSwitch.addEventListener('change', () => {
         const isOn = mainSwitch.checked;
-        if (tip) tip.classList.toggle('YinCang', !isOn);
         if (configBlock) configBlock.classList.toggle('YinCang', !isOn);
+      });
+    }
+
+    // 外部访问开关 → 控制"网页访问地址 / 访问令牌"区块显隐
+    const externalSwitch = panel.querySelector('#KeFangWen-WaiBu-KaiGuan');
+    const yiShiYongBlock = panel.querySelector('#KeFangWen-YiShiYong-TiShi');
+    if (externalSwitch) {
+      externalSwitch.addEventListener('change', () => {
+        if (yiShiYongBlock) yiShiYongBlock.classList.toggle('YinCang', !externalSwitch.checked);
+      });
+    }
+
+    // 复制/重新生成令牌按钮
+    const tokenCopyBtn = panel.querySelector('#KeFangWen-Token-FuZhi');
+    const tokenRegenBtn = panel.querySelector('#KeFangWen-Token-ChongZhi');
+    const tokenEditBtn = panel.querySelector('#KeFangWen-Token-Edit');
+    const tokenInput = panel.querySelector('#KeFangWen-Token');
+
+    if (tokenEditBtn && tokenInput) {
+      tokenEditBtn.addEventListener('click', () => {
+        const isReadonly = tokenInput.getAttribute('readonly') !== null;
+        tokenInput.setAttribute('readonly', isReadonly ? '' : '');
+        // 切换 readonly：去掉则进入编辑，加上则取消编辑
+        tokenInput.removeAttribute('readonly');
+        tokenEditBtn.title = '保存';
+        // 图标换成勾选（保存）
+        tokenEditBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+        tokenInput.focus();
+        tokenInput.select();
+      });
+      // 失焦时自动退出编辑态并保存
+      tokenInput.addEventListener('blur', () => {
+        tokenInput.setAttribute('readonly', '');
+        tokenEditBtn.title = '编辑';
+        tokenEditBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.42l-2.83-2.83a1 1 0 0 0-1.42 0L14 4.66l3.75 3.75 2.96-2.96z"/></svg>';
+      });
+    }
+
+    if (tokenCopyBtn) {
+      tokenCopyBtn.addEventListener('click', () => {
+        const val = panel.querySelector('#KeFangWen-Token').value;
+        if (val) this._fuZhiWenBen(val);
+      });
+    }
+    if (tokenRegenBtn) {
+      tokenRegenBtn.addEventListener('click', async () => {
+        try {
+          const newConfig = await window.electronAPI.settings.regenerateAccessibilityToken();
+          this._tianChongKeFangWenXingURLAndToken(panel, newConfig);
+        } catch (error) {
+          console.error('重新生成令牌失败:', error);
+        }
       });
     }
   },
@@ -192,20 +281,49 @@ window.SettingsPage = {
       const configBlock = panel.querySelector('#KeFangWen-XinXi-PeiZhi-RongQi');
       const portInput = panel.querySelector('#KeFangWen-DuanKou');
       const externalSwitch = panel.querySelector('#KeFangWen-WaiBu-KaiGuan');
+      const yiShiYongBlock = panel.querySelector('#KeFangWen-YiShiYong-TiShi');
 
       if (mainSwitch) mainSwitch.checked = accessibilityConfig.enabled || false;
       if (portInput) portInput.value = accessibilityConfig.port || 8964;
       if (externalSwitch) externalSwitch.checked = accessibilityConfig.allowExternal || false;
 
+      // 填充访问地址与令牌
+      this._tianChongKeFangWenXingURLAndToken(panel, accessibilityConfig);
+
       if (accessibilityConfig.enabled) {
-        if (tip) tip.classList.remove('YinCang');
         if (configBlock) configBlock.classList.remove('YinCang');
       } else {
-        if (tip) tip.classList.add('YinCang');
         if (configBlock) configBlock.classList.add('YinCang');
       }
+      // 外部访问开启时显示地址/令牌区块，否则隐藏
+      if (yiShiYongBlock) yiShiYongBlock.classList.toggle('YinCang', !accessibilityConfig.allowExternal);
     } catch (error) {
       console.error('填充可访问性配置失败:', error);
+    }
+  },
+
+  _tianChongKeFangWenXingURLAndToken: function(panel, accessibilityConfig) {
+    const tokenInput = panel.querySelector('#KeFangWen-Token');
+    const tokenEditBtn = panel.querySelector('#KeFangWen-Token-Edit');
+    if (tokenInput) tokenInput.value = accessibilityConfig.token || '';
+    // 确保输入框处于只读状态，恢复编辑图标
+    if (tokenInput) tokenInput.setAttribute('readonly', '');
+    if (tokenEditBtn) {
+      tokenEditBtn.title = '编辑';
+      tokenEditBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.42l-2.83-2.83a1 1 0 0 0-1.42 0L14 4.66l3.75 3.75 2.96-2.96z"/></svg>';
+    }
+  },
+
+  _fuZhiWenBen: async function(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (window.DialogManager) {
+        await window.DialogManager.TiShi('已复制', '已复制到剪贴板');
+      }
+    } catch (e) {
+      if (window.DialogManager) {
+        await window.DialogManager.TiShi('复制失败', '无法访问剪贴板：' + e.message);
+      }
     }
   },
 
@@ -274,11 +392,9 @@ window.SettingsPage = {
 
       if (autoOn) {
         if (configBlock) configBlock.classList.add('YinCang');
-        if (autoTip) autoTip.classList.remove('YinCang');
         const manualGroup = panel.querySelector('#DaiLi-ShouDong-RongQi');
         if (manualGroup) manualGroup.classList.add('YinCang');
       } else {
-        if (autoTip) autoTip.classList.add('YinCang');
         const manualGroup = panel.querySelector('#DaiLi-ShouDong-RongQi');
         if (manualGroup) manualGroup.classList.remove('YinCang');
         if (configBlock) configBlock.classList.toggle('YinCang', !proxyConfig.enabled);
@@ -321,43 +437,47 @@ window.SettingsPage = {
         return;
       }
 
-      // 处理代理配置
-      const autoSwitch = panel.querySelector('#DaiLi-ZiDong-KaiGuan');
-      const manualSwitch = panel.querySelector('#DaiLi-KaiGuan');
-      const ipInput = panel.querySelector('#DaiLi-IP');
-      const portInput = panel.querySelector('#DaiLi-DuanKou');
+      // 只保存当前激活面板对应的配置，避免把其它面板的配置重置为默认值
+      if (panel.id === 'SheZhi-XiangQing-DaiLi') {
+        const autoSwitch = panel.querySelector('#DaiLi-ZiDong-KaiGuan');
+        const manualSwitch = panel.querySelector('#DaiLi-KaiGuan');
+        const ipInput = panel.querySelector('#DaiLi-IP');
+        const portInput = panel.querySelector('#DaiLi-DuanKou');
 
-      const proxyConfig = {
-        autoConfigure: autoSwitch ? autoSwitch.checked : false,
-        enabled: manualSwitch ? manualSwitch.checked : false,
-        http: '',
-        https: ''
-      };
+        const proxyConfig = {
+          autoConfigure: autoSwitch ? autoSwitch.checked : false,
+          enabled: manualSwitch ? manualSwitch.checked : false,
+          http: '',
+          https: ''
+        };
 
-      const ip = ipInput ? ipInput.value.trim() : '';
-      const port = portInput ? portInput.value.trim() : '';
-      if (ip && port) {
-        proxyConfig.http = 'http://' + ip + ':' + port;
-        proxyConfig.https = proxyConfig.http;
-      }
+        const ip = ipInput ? ipInput.value.trim() : '';
+        const port = portInput ? portInput.value.trim() : '';
+        if (ip && port) {
+          proxyConfig.http = 'http://' + ip + ':' + port;
+          proxyConfig.https = proxyConfig.http;
+        }
 
-      await window.electronAPI.settings.setProxyConfig(proxyConfig);
-
-      // 处理可访问性配置
-      const keFangWenPanel = document.querySelector('#SheZhi-XiangQing-KeFangWenXing');
-      if (keFangWenPanel && keFangWenPanel.classList.contains('active')) {
-        const mainSwitch = keFangWenPanel.querySelector('#KeFangWen-XinXi-KaiGuan');
-        const portInput2 = keFangWenPanel.querySelector('#KeFangWen-DuanKou');
-        const externalSwitch = keFangWenPanel.querySelector('#KeFangWen-WaiBu-KaiGuan');
+        await window.electronAPI.settings.setProxyConfig(proxyConfig);
+      } else if (panel.id === 'SheZhi-XiangQing-KeFangWenXing') {
+        const mainSwitch = panel.querySelector('#KeFangWen-XinXi-KaiGuan');
+        const portInput2 = panel.querySelector('#KeFangWen-DuanKou');
+        const externalSwitch = panel.querySelector('#KeFangWen-WaiBu-KaiGuan');
+        const tokenInput = panel.querySelector('#KeFangWen-Token');
 
         const accessibilityConfig = {
           enabled: mainSwitch ? mainSwitch.checked : false,
           port: portInput2 ? parseInt(portInput2.value, 10) || 8964 : 8964,
           allowExternal: externalSwitch ? externalSwitch.checked : false
         };
+        // 若用户手动填写了令牌则保存，否则沿用已有值（由后端决定是否自动生成）
+        if (tokenInput && tokenInput.value.trim()) {
+          accessibilityConfig.token = tokenInput.value.trim();
+        }
 
         await window.electronAPI.settings.setAccessibilityConfig(accessibilityConfig);
       }
+      // 「系统操作」面板只有按钮，无需保存配置
 
       this.guanBiSheZhi();
     } catch (error) {

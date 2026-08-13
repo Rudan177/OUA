@@ -11,6 +11,7 @@ process.env.OUA_DEV = app.isPackaged ? '0' : '1';
 const logger = require('./utils/logger');
 const pathUtils = require('./utils/pathUtils');
 const configService = require('./services/configService');
+const httpServerService = require('./services/httpServerService');
 const appService = require('./services/appService');
 
 const { registerFileIPC } = require('./ipc/fileIPC');
@@ -436,6 +437,41 @@ ipcMain.handle('set-hotkey-config', async (event, hotkeyConfig) => {
   return true;
 });
 
+// 注册可访问性配置相关 IPC
+ipcMain.handle('get-accessibility-config', async () => {
+  return configService.getAccessibilityConfig();
+});
+
+ipcMain.handle('set-accessibility-config', async (event, accessibilityConfig) => {
+  configService.setAccessibilityConfig(accessibilityConfig);
+  // 根据配置启动或停止 HTTP server
+  httpServerService.qiDong(accessibilityConfig);
+  return true;
+});
+
+ipcMain.handle('regenerate-accessibility-token', async () => {
+  return configService.regenerateAccessibilityToken();
+});
+
+// 订阅 httpServerService 状态变更，实时广播给渲染进程
+httpServerService.onStatusChange(() => {
+  if (mainWindow) {
+    mainWindow.webContents.send('http-server-status-change', httpServerService.huoQuZhuangTai());
+  }
+});
+ipcMain.handle('http-server-start', async (event, accessibilityConfig) => {
+  return httpServerService.qiDong(accessibilityConfig);
+});
+
+ipcMain.handle('http-server-stop', async () => {
+  httpServerService.guanBi();
+  return true;
+});
+
+ipcMain.handle('http-server-status', async () => {
+  return httpServerService.huoQuZhuangTai();
+});
+
 // 注册窗口隐藏 IPC（ESC 关闭窗口用，避免触发 close 事件导致退出）
 ipcMain.handle('window-hide', async () => {
   if (mainWindow) {
@@ -585,6 +621,12 @@ app.whenReady().then(() => {
   registerUpdateIPC();
   registerDialogIPC();
 
+  // 恢复可访问性 HTTP server（如果之前已启用）
+  const accessibilityConfig = configService.getAccessibilityConfig();
+  if (accessibilityConfig.enabled) {
+    httpServerService.qiDong(accessibilityConfig);
+  }
+
   const startupConfig = configService.getStartupConfig();
   const silentMode = process.argv.includes('--silent') && startupConfig.launchOnBoot && startupConfig.minimizeToTray;
 
@@ -643,6 +685,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   isQuitting = true;
   zhuXiaoQuanJuReJian();
+  httpServerService.guanBi();
   logger.info('应用退出');
 });
 

@@ -407,6 +407,16 @@
   box-shadow: 0 0 0 3px rgba(0, 174, 0, 0.1);
 }
 
+/* 隐藏数字输入框的上下箭头 */
+.setting-input[type="number"] {
+  -moz-appearance: textfield;
+}
+.setting-input[type="number"]::-webkit-inner-spin-button,
+.setting-input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* 开关样式 */
 .switch-label {
   display: flex;
@@ -488,6 +498,61 @@ input:checked + .slider:before {
   background: var(--input-bg);
   border-radius: 10px;
   border: 1px solid var(--border-color);
+}
+
+/* 可访问性配置容器 */
+.KeFangWen-PeiZhi-RongQi {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--input-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 服务器运行状态指示条 */
+.KeFangWen-ZhuangTai-Xing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.KeFangWen-ZhuangTai-Dian {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #999;
+  flex-shrink: 0;
+  transition: background 0.3s ease;
+}
+
+.KeFangWen-ZhuangTai-Dian.YunXingZhong {
+  background: #00aa00;
+  box-shadow: 0 0 6px rgba(0, 170, 0, 0.5);
+}
+
+.KeFangWen-ZhuangTai-WenBen {
+  font-size: 12px;
+  color: var(--text-secondary);
+  user-select: text;
+}
+
+/* 访问令牌按钮行 */
+.KeFangWen-Token-AnNiu-Xing {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.KeFangWen-Token-AnNiu-Xing .AnNiu-Xiao {
+  white-space: nowrap;
 }
 
 .SheZhi-TiShi {
@@ -809,4 +874,79 @@ input:checked + .slider:before {
 .ReJian-ChongZhi-AnNiu:hover {
   color: var(--text-secondary);
   text-decoration: underline;
+}
+
+/* 局域网远程访问区块（外部访问开启时才显示） */
+.KeFangWen-YiShiYong {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 令牌行：输入框 + 内嵌图标按钮 */
+.KeFangWen-Token-Row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+}
+
+.KeFangWen-Token-Input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.KeFangWen-Token-Input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background: var(--input-bg);
+  box-shadow: 0 0 0 3px rgba(0, 174, 0, 0.1);
+}
+
+.KeFangWen-Token-Input[readonly] {
+  cursor: default;
+  color: var(--text-secondary);
+}
+
+.KeFangWen-Token-Input:not([readonly]) {
+  cursor: text;
+  color: var(--text-primary);
+}
+
+.KeFangWen-Token-IconBtn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.KeFangWen-Token-IconBtn:hover {
+  background: rgba(0, 174, 0, 0.1);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.KeFangWen-Token-IconBtn:active {
+  background: rgba(0, 174, 0, 0.18);
+}
+
+.KeFangWen-Token-IconBtn svg {
+  pointer-events: none;
 }

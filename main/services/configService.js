@@ -3,6 +3,7 @@
  */
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const pathUtils = require('../utils/pathUtils');
 const fileUtils = require('../utils/fileUtils');
 const logger = require('../utils/logger');
@@ -43,6 +44,7 @@ function loadConfig() {
         saveConfig();
       } else {
         logger.info('配置加载成功');
+        normalizeConfig();
       }
     } catch (error) {
       logger.error(`配置加载失败: ${error.message}`);
@@ -80,8 +82,32 @@ function getDefaultConfig() {
       enabled: false,
       openWindow: 'Ctrl+Shift+O'
     },
+    accessibility: {
+      enabled: false,
+      port: 8964,
+      allowExternal: false,
+      token: null
+    },
     selfUpdate: null
   };
+}
+
+/**
+ * 规范化配置：补齐缺失字段、自动生成缺失的访问令牌
+ */
+function normalizeConfig() {
+  let changed = false;
+  if (!configData.accessibility) {
+    configData.accessibility = { enabled: false, port: 8964, allowExternal: false, token: null };
+    changed = true;
+  }
+  if (configData.accessibility.enabled && !configData.accessibility.token) {
+    configData.accessibility.token = generateAccessibilityToken();
+    changed = true;
+  }
+  if (changed) {
+    saveConfig();
+  }
 }
 
 /**
@@ -227,6 +253,63 @@ function setSelfUpdate(selfUpdate) {
   logger.info('自更新待安装状态已保存');
 }
 
+/**
+ * 生成随机访问令牌
+ * @returns {string} 32 位十六进制随机令牌
+ */
+function generateAccessibilityToken() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+/**
+ * 获取可访问性配置
+ * @returns {object} 可访问性配置对象
+ */
+function getAccessibilityConfig() {
+  return configData && configData.accessibility ? configData.accessibility : {
+    enabled: false,
+    port: 8964,
+    allowExternal: false,
+    token: null
+  };
+}
+
+/**
+ * 设置可访问性配置
+ * @param {object} accessibilityConfig - 可访问性配置对象
+ */
+function setAccessibilityConfig(accessibilityConfig) {
+  if (!accessibilityConfig || typeof accessibilityConfig !== 'object') return;
+  if (!configData) configData = getDefaultConfig();
+  configData.accessibility = {
+    enabled: accessibilityConfig.enabled ?? (configData.accessibility?.enabled ?? false),
+    port: accessibilityConfig.port ?? (configData.accessibility?.port ?? 8964),
+    allowExternal: accessibilityConfig.allowExternal ?? (configData.accessibility?.allowExternal ?? false),
+    token: accessibilityConfig.token ?? (configData.accessibility?.token ?? null)
+  };
+  // 启用时若尚无令牌则自动生成，保证局域网远程访问有凭据可用
+  if (configData.accessibility.enabled && !configData.accessibility.token) {
+    configData.accessibility.token = generateAccessibilityToken();
+  }
+  saveConfig();
+  logger.info('可访问性配置已保存');
+}
+
+/**
+ * 重新生成可访问性访问令牌
+ * @returns {object} 更新后的可访问性配置
+ */
+function regenerateAccessibilityToken() {
+  if (!configData) configData = getDefaultConfig();
+  if (!configData.accessibility) {
+    configData.accessibility = { enabled: false, port: 8964, allowExternal: false, token: null };
+  }
+  configData.accessibility.token = generateAccessibilityToken();
+  saveConfig();
+  logger.info('可访问性访问令牌已重新生成');
+  return configData.accessibility;
+}
+
 module.exports = {
   initConfig,
   loadConfig,
@@ -242,5 +325,8 @@ module.exports = {
   setHotkeyConfig,
   getHotkeyConfig,
   getSelfUpdate,
-  setSelfUpdate
+  setSelfUpdate,
+  getAccessibilityConfig,
+  setAccessibilityConfig,
+  regenerateAccessibilityToken
 };

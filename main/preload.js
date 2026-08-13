@@ -76,7 +76,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStartupConfig: () => ipcRenderer.invoke('get-startup-config'),
     setStartupConfig: (config) => ipcRenderer.invoke('set-startup-config', config),
     getHotkeyConfig: () => ipcRenderer.invoke('get-hotkey-config'),
-    setHotkeyConfig: (config) => ipcRenderer.invoke('set-hotkey-config', config)
+    setHotkeyConfig: (config) => ipcRenderer.invoke('set-hotkey-config', config),
+    getAccessibilityConfig: () => ipcRenderer.invoke('get-accessibility-config'),
+    setAccessibilityConfig: (config) => ipcRenderer.invoke('set-accessibility-config', config),
+    regenerateAccessibilityToken: () => ipcRenderer.invoke('regenerate-accessibility-token')
+  },
+  httpServer: {
+    start: (config) => ipcRenderer.invoke('http-server-start', config),
+    stop: () => ipcRenderer.invoke('http-server-stop'),
+    getStatus: () => ipcRenderer.invoke('http-server-status'),
+    onStatusChange: (callback) => {
+      const handler = (_event, status) => callback(status);
+      ipcRenderer.on('http-server-status-change', handler);
+      return () => ipcRenderer.removeListener('http-server-status-change', handler);
+    }
   },
   appConfig: {
     getAppInfo: () => ipcRenderer.invoke('get-app-config')
