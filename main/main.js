@@ -553,7 +553,9 @@ function createTray() {
   // 轻量模式：根据窗口当前可见性初始化菜单
   let contextMenu;
   if (lightweightMode) {
-    const items = mainWindow && mainWindow.isVisible()
+    const hasWindow = mainWindow !== null;
+    const isVisible = hasWindow && mainWindow.isVisible();
+    const items = isVisible
       ? [
           { label: '隐藏窗口', click: () => mainWindow.hide() },
           { type: 'separator' },
@@ -569,32 +571,40 @@ function createTray() {
   tray.setToolTip('OOOInterface Update Assistant');
   tray.setContextMenu(contextMenu);
 
-  // 轻量模式：监听窗口显示状态变化，同步更新托盘菜单
-  if (lightweightMode) {
-    mainWindow && mainWindow.on('show', () => {
-      updateTrayMenu();
-    });
-    mainWindow && mainWindow.on('hide', () => {
-      updateTrayMenu();
-    });
-    mainWindow && mainWindow.on('closed', () => {
+  /**
+   * 轻量模式：重新注册窗口事件监听并同步托盘菜单
+   * 在窗口被 destroy 后重建时需要调用，确保菜单随状态实时更新
+   */
+  function syncTrayMenuListeners() {
+    if (!lightweightMode || !mainWindow) return;
+    mainWindow.on('show', updateTrayMenu);
+    mainWindow.on('hide', updateTrayMenu);
+    mainWindow.on('closed', () => {
+      mainWindow = null;
       updateTrayMenu();
     });
     updateTrayMenu();
+  }
+
+  // 轻量模式：首次注册事件监听并同步菜单
+  if (lightweightMode) {
+    syncTrayMenuListeners();
   }
 
   if (process.platform !== 'darwin') {
     tray.on('double-click', () => {
       if (lightweightMode) {
         if (mainWindow && mainWindow.isVisible()) {
+          // 窗口已显示：仅隐藏
           mainWindow.hide();
+        } else if (mainWindow) {
+          // 窗口存在但不可见（最小化）：显示并聚焦
+          mainWindow.show();
+          mainWindow.focus();
         } else {
-          if (mainWindow) {
-            mainWindow.show();
-            mainWindow.focus();
-          } else {
-            createWindow(false);
-          }
+          // 窗口不存在：新建窗口
+          createWindow(false);
+          syncTrayMenuListeners();
         }
       } else if (mainWindow) {
         if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
@@ -621,12 +631,13 @@ function createTray() {
           { label: '退出', click: () => { isQuitting = true; app.quit(); } }
         ]
       : [
-          { label: hasWindow ? '显示窗口' : '显示窗口', click: () => {
+          { label: '显示窗口', click: () => {
             if (mainWindow) {
               mainWindow.show();
               mainWindow.focus();
             } else {
               createWindow(false);
+              syncTrayMenuListeners();
             }
           }},
           { type: 'separator' },
