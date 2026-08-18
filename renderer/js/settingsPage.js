@@ -38,6 +38,7 @@ window.SettingsPage = {
     const sheZhiAnNiu = document.getElementById('AnNiu-SheZhi');
     const sheZhiGuanBi = document.getElementById('SheZhi-GuanBi');
     const sheZhiYingYong = document.getElementById('SheZhi-YingYong');
+    const sheZhiHouTui = document.getElementById('SheZhi-HouTui');
     const menuOptions = document.querySelectorAll('.settings-menu-option');
 
     if (sheZhiAnNiu) {
@@ -50,6 +51,10 @@ window.SettingsPage = {
 
     if (sheZhiYingYong) {
       sheZhiYingYong.addEventListener('click', () => this.yingYongSheZhi());
+    }
+
+    if (sheZhiHouTui) {
+      sheZhiHouTui.addEventListener('click', () => this.tuiHuiShouCang());
     }
 
     menuOptions.forEach(option => {
@@ -95,6 +100,11 @@ window.SettingsPage = {
     const panel = document.getElementById(panelId);
     if (panel) {
       panel.classList.add('active');
+      // 移动端：切换右侧面板（仅切换 class，CSS 负责动画）
+      const sheZhiZheZhao = document.getElementById('SheZhi-ZheZhao');
+      if (sheZhiZheZhao) {
+        sheZhiZheZhao.classList.add('right-panel-open');
+      }
       // 首次展示时绑定事件
       if (!panel.dataset.bound) {
         this.bindPanelEvents(panel, target);
@@ -361,11 +371,12 @@ window.SettingsPage = {
         sheZhiZheZhao.classList.add('JiHuo');
       }, 10);
 
-      // 自动选中第一个菜单项（代理设置）
-      const firstMenuOption = document.querySelector('.settings-menu-option[data-target="daiLi"]');
-      if (firstMenuOption) {
-        // zhanKaiXiangQing 内部会实时读取最新配置并填充
-        await this.zhanKaiXiangQing(firstMenuOption);
+      // 桌面端默认选中第一个菜单项
+      if (window.innerWidth >= 600) {
+        const firstMenuOption = document.querySelector('.settings-menu-option[data-target="daiLi"]');
+        if (firstMenuOption) {
+          await this.zhanKaiXiangQing(firstMenuOption);
+        }
       }
     } catch (error) {
       console.error('加载设置失败:', error);
@@ -410,34 +421,33 @@ window.SettingsPage = {
   },
 
   guanBiSheZhi: function() {
+    // 同步保存配置，不阻塞关闭
+    this._shouCangHuoDongMianBan();
+
     const sheZhiZheZhao = document.getElementById('SheZhi-ZheZhao');
+    sheZhiZheZhao.classList.remove('right-panel-open');
     sheZhiZheZhao.classList.remove('JiHuo');
-    // 等待退出过渡（300ms）完成后再隐藏元素，避免 display:none 打断动画
+
+    // 模态框淡出动画完成后隐藏元素（与 CSS transition 0.3s 对齐）
     setTimeout(() => {
       sheZhiZheZhao.classList.add('YinCang');
-    }, 320);
-
-    document.querySelectorAll('.settings-menu-option').forEach(opt => {
-      opt.classList.remove('selected');
-    });
-
-    // 隐藏所有详情面板，恢复占位符
-    document.querySelectorAll('.settings-detail-panel').forEach(p => {
-      p.classList.remove('active');
-    });
-    const placeholder = document.querySelector('#right-panel-upper .right-panel-placeholder-container');
-    if (placeholder) placeholder.style.display = '';
+      document.querySelectorAll('.settings-menu-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      document.querySelectorAll('.settings-detail-panel').forEach(p => {
+        p.classList.remove('active');
+      });
+      const placeholder = document.querySelector('#right-panel-upper .right-panel-placeholder-container');
+      if (placeholder) placeholder.style.display = '';
+    }, 300);
   },
 
-  yingYongSheZhi: async function() {
-    try {
-      const panel = document.querySelector('.settings-detail-panel.active');
-      if (!panel) {
-        this.guanBiSheZhi();
-        return;
-      }
+  // 内部方法：仅保存当前激活面板的配置，不清理 UI
+  _shouCangHuoDongMianBan: async function() {
+    const panel = document.querySelector('.settings-detail-panel.active');
+    if (!panel) return;
 
-      // 只保存当前激活面板对应的配置，避免把其它面板的配置重置为默认值
+    try {
       if (panel.id === 'SheZhi-XiangQing-DaiLi') {
         const autoSwitch = panel.querySelector('#DaiLi-ZiDong-KaiGuan');
         const manualSwitch = panel.querySelector('#DaiLi-KaiGuan');
@@ -470,7 +480,6 @@ window.SettingsPage = {
           port: portInput2 ? parseInt(portInput2.value, 10) || 8964 : 8964,
           allowExternal: externalSwitch ? externalSwitch.checked : false
         };
-        // 若用户手动填写了令牌则保存，否则沿用已有值（由后端决定是否自动生成）
         if (tokenInput && tokenInput.value.trim()) {
           accessibilityConfig.token = tokenInput.value.trim();
         }
@@ -478,7 +487,31 @@ window.SettingsPage = {
         await window.electronAPI.settings.setAccessibilityConfig(accessibilityConfig);
       }
       // 「系统操作」面板只有按钮，无需保存配置
+    } catch (error) {
+      console.error('保存设置失败:', error);
+    }
+  },
 
+  tuiHuiShouCang: function() {
+    const sheZhiZheZhao = document.getElementById('SheZhi-ZheZhao');
+    sheZhiZheZhao.classList.remove('right-panel-open');
+    // 动画完成后清理选中状态
+    setTimeout(() => {
+      document.querySelectorAll('.settings-menu-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      document.querySelectorAll('.settings-detail-panel').forEach(p => {
+        p.classList.remove('active');
+      });
+      const placeholder = document.querySelector('#right-panel-upper .right-panel-placeholder-container');
+      if (placeholder) placeholder.style.display = '';
+    }, 300);
+  },
+
+  yingYongSheZhi: async function() {
+    try {
+      // 保存当前激活面板的配置
+      await this._shouCangHuoDongMianBan();
       this.guanBiSheZhi();
     } catch (error) {
       console.error('保存设置失败:', error);

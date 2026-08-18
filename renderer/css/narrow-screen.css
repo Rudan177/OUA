@@ -1,0 +1,217 @@
+/**
+ * 窄屏幕适配 — 左右分栏 → 上下分栏 + 滚动支持
+ */
+@media screen and (max-width: 800px) {
+  /* 解除根元素与 PingMu 的 overflow 限制，允许整页滚动 */
+  html, body {
+    overflow: auto;
+  }
+
+  .PingMu {
+    align-items: flex-start;
+    justify-content: flex-start;
+    overflow: auto;
+  }
+
+  .YingYong-RongQi {
+    flex-direction: column;
+    padding: 12px;
+    gap: 12px;
+    overflow: visible;
+    height: auto;
+    min-height: 100%;
+  }
+
+  .Zuo-MianBan {
+    flex: none;
+    flex-grow: 1;
+    min-height: 0;
+    margin-left: 0;
+  }
+
+  .You-MianBan {
+    flex: none;
+    flex-grow: 0;
+    min-height: auto;
+    margin-right: 0;
+  }
+}
+
+/* =============================================
+   桌面端：隐藏移动端专用的返回按钮
+   ============================================= */
+@media screen and (min-width: 600px) {
+  .back-btn {
+    display: none !important;
+  }
+}
+
+/* =============================================
+   移动端设置遮罩 — 完全参考 OOOInterface5.2（≤599px）
+   ============================================= */
+@media screen and (max-width: 599px) {
+  .modal-content {
+    height: calc(100vh - 80px);
+    max-height: 640px;
+  }
+
+  .modal.JiHuo .modal-content {
+    transform: scale(1) translateY(0);
+  }
+
+  #SheZhi-YingYong {
+    display: none;
+  }
+
+  /* ===== 布局 ===== */
+  .settings-layout {
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .settings-content-area {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* 移动端底部操作栏 */
+  #mobile-buttons-container {
+    flex-shrink: 0;
+    display: flex !important;
+    flex-direction: row;
+    gap: 12px;
+    padding: 12px 24px 16px;
+    border-top: 1px solid var(--border-color);
+  }
+
+  #mobile-buttons-container .setting-group.action-buttons {
+    padding: 0;
+    border: none;
+    margin: 0;
+    background: transparent;
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    gap: 12px;
+  }
+
+  #mobile-buttons-container .apply-btn {
+    flex: 1;
+    padding: 12px 24px;
+    font-size: 15px;
+  }
+
+  /* ===== 左侧面板 ===== */
+  .settings-left-panel {
+    border-right: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    z-index: 2;
+    transform: translateX(0);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .settings-left-panel .modal-body {
+    flex: 1;
+    max-height: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* ===== 右侧面板 ===== */
+  .settings-right-panel {
+    position: absolute;
+    top: 0;
+    left: 100%;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    z-index: 3;
+    transform: translateX(0);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .right-panel-content {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .right-panel-upper {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    margin-bottom: 0;
+    padding: 16px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  /* ===== 幻灯片动画 ===== */
+  .right-panel-open .settings-left-panel {
+    transform: translateX(-100%);
+    transition: transform 0.25s linear;
+  }
+
+  .right-panel-open .settings-right-panel {
+    transform: translateX(-100%);
+    transition: transform 0.25s linear;
+  }
+
+  /* ===== 返回按钮（完全照抄参考）===== */
+  .back-btn {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    z-index: 2;
+    transform: translateY(-50%) translateX(-10px) scale(0.7);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.15s linear, opacity 0.15s linear, background-color 0.2s ease;
+  }
+
+  .back-btn:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+    transform: translateY(-50%) scale(1.1) !important;
+  }
+
+  html[data-theme="dark"] .back-btn:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .back-btn:active {
+    transform: translateY(-50%) scale(0.95) !important;
+  }
+
+  #SheZhi-ZheZhao.right-panel-open .back-btn {
+    transform: translateY(-50%) translateX(0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+    transition: transform 0.15s linear 0.04s, opacity 0.15s linear 0.04s;
+  }
+
+  #SheZhi-ZheZhao.right-panel-open .modal-header h2 {
+    padding-left: 44px;
+  }
+
+  /* 触屏优化 */
+  #SheZhi-ZheZhao button,
+  #SheZhi-ZheZhao input,
+  #SheZhi-ZheZhao select {
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+  }
+}
