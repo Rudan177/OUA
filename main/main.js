@@ -175,11 +175,6 @@ function createWindow(silentMode = false) {
     }
   });
 
-  mainWindow.on('closed', () => {
-    logger.info('轻量模式：窗口已关闭事件触发');
-    mainWindow = null;
-  });
-
   mainWindow.on('close', (event) => {
     if (!isRestarting) {
       const startupConfig = configService.getStartupConfig();
@@ -192,6 +187,10 @@ function createWindow(silentMode = false) {
         mainWindow.hide();
       }
     }
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
   });
 }
 
