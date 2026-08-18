@@ -179,9 +179,16 @@ function createWindow(silentMode = false) {
     if (!isRestarting) {
       const startupConfig = configService.getStartupConfig();
       if (startupConfig.lightweightMode) {
-        // 轻量模式：无论是否正在退出，关闭窗口时都销毁渲染进程释放内存
+        // 轻量模式：销毁窗口释放 Chromium 渲染进程内存，保留主进程和托盘
         event.preventDefault();
-        mainWindow.destroy();
+        // 先清空 session 缓存，再销毁窗口，确保渲染进程彻底退出
+        if (mainWindow.webContents) {
+          const session = mainWindow.webContents.session;
+          mainWindow.loadURL('about:blank');
+          session.clearCache().then(() => mainWindow.destroy()).catch(() => mainWindow.destroy());
+        } else {
+          mainWindow.destroy();
+        }
       } else if (startupConfig.minimizeToTray && !isQuitting) {
         event.preventDefault();
         mainWindow.hide();
@@ -409,6 +416,13 @@ function zhuCeQuanJuReJian() {
           // 已显示时按热键则隐藏（与 ESC 行为一致）
           mainWindow.hide();
         } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      } else {
+        // 轻量模式：窗口已销毁，重新创建
+        createWindow(false);
+        if (mainWindow) {
           mainWindow.show();
           mainWindow.focus();
         }
