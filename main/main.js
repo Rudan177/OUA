@@ -181,14 +181,11 @@ function createWindow(silentMode = false) {
       if (startupConfig.lightweightMode) {
         // 轻量模式：销毁窗口释放 Chromium 渲染进程内存，保留主进程和托盘
         event.preventDefault();
-        // 先清空 session 缓存，再销毁窗口，确保渲染进程彻底退出
-        if (mainWindow.webContents) {
-          const session = mainWindow.webContents.session;
-          mainWindow.loadURL('about:blank');
-          session.clearCache().then(() => mainWindow.destroy()).catch(() => mainWindow.destroy());
-        } else {
-          mainWindow.destroy();
+        if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+          // webContents.destroy() 立即终止 Chromium 渲染进程（Electron 28+）
+          mainWindow.webContents.destroy();
         }
+        mainWindow.destroy();
       } else if (startupConfig.minimizeToTray && !isQuitting) {
         event.preventDefault();
         mainWindow.hide();
