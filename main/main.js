@@ -92,6 +92,7 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', (event, argv) => {
+    logger.info(`second-instance argv: ${JSON.stringify(argv)}`);
     // C# 托盘助手「退出」在窗口模式下拉起带 --quit 的实例，触发本进程正常退出
     if (argv && argv.includes('--quit')) {
       logger.info('收到 --quit 请求，退出应用');
@@ -512,6 +513,8 @@ function createWindow(silentMode = false) {
   });
 
   mainWindow.on('close', (event) => {
+    const closeCfg = configService.getStartupConfig();
+    logger.info(`窗口close: isRestarting=${isRestarting} isQuitting=${isQuitting} lightweightMode=${!!closeCfg.lightweightMode} minimizeToTray=${!!closeCfg.minimizeToTray}`);
     // isQuitting=true（托盘「退出」/--quit）时放行关闭，走正常退出流程（before-quit 清理托盘助手）
     if (!isRestarting && !isQuitting) {
       const startupConfig = configService.getStartupConfig();

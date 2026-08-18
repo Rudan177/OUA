@@ -212,7 +212,6 @@ namespace OuaNativeTray
         private static uint _hotkeyMods = 0;
         private static uint _hotkeyVk = 0;
         private static long _lastShowTime = 0; // 防抖：左键单击可能同时收到 WM_LBUTTONUP + NIN_SELECT
-        private static bool _quitDone = false; // 窗口模式退出：主程序 before-quit 会结束本进程，兜底判断避免重复动作
 
         private const int SM_CXSMICON = 11;
         private const int SM_CYSMICON = 12;
@@ -552,12 +551,25 @@ namespace OuaNativeTray
             }
             else if (IsMainRunning())
             {
-                // 窗口模式：通知主程序 --quit（由主程序 before-quit 清理 C# 助手）
-                Log("窗口模式退出：通知主程序 --quit");
-                LaunchMain("--quit");
-                // 主程序 before-quit 会结束本进程；兜底 5 秒后自行退出
-                Thread.Sleep(5000);
-                if (!_quitDone) PostQuitMessage(0);
+                // 窗口模式：直接结束主程序（taskkill /F 强杀，不触发 close 事件）
+                // 避免依赖 --quit 异步链路：若 --quit 未及时到达导致 isQuitting=false，
+                // 窗口 close 会误入轻量分支拉起守护进程，使托盘"先退出又被启动"。
+                Log("窗口模式退出：直接结束主程序");
+                string mainName = Path.GetFileNameWithoutExtension(_mainExe);
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "taskkill",
+                        Arguments = "/IM \"" + mainName + "\" /F",
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    });
+                    Log("已结束主程序: " + mainName);
+                }
+                catch (Exception ex) { Log("结束主程序失败: " + ex.Message); }
+                Thread.Sleep(1000);
+                PostQuitMessage(0);
             }
             else
             {
