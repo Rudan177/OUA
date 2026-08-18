@@ -52,8 +52,8 @@
       stop();
       DaiXiaZaiLuJing = res.path;
       XianShiYuanDian(true);
-      SheZhiZhuangTai('新版本已下载');
-      SheZhiAnNiuWenZi('更新', false);
+      SheZhiZhuangTai('新版本已就绪');
+      SheZhiAnNiuWenZi('重启并更新', false);
     } catch (e) {
       stop();
       XianShiYuanDian(false);

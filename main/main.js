@@ -1,7 +1,7 @@
 /**
  * Electron 主进程入口
  */
-const { app, BrowserWindow, ipcMain, nativeTheme, Tray, Menu, globalShortcut, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, Tray, Menu, globalShortcut, nativeImage, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 

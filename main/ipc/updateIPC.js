@@ -2,7 +2,6 @@
  * 更新 IPC 通信
  */
 const { ipcMain, shell, app } = require('electron');
-const path = require('path');
 const fs = require('fs');
 const updateService = require('../services/updateService');
 const versionService = require('../services/versionService');
