@@ -7,8 +7,8 @@
  */
 const path = require('path');
 const fs = require('fs');
-const { app } = require('electron');
 const logger = require('../utils/logger');
+const pathUtils = require('../utils/pathUtils');
 const appConfig = require('../config/appConfig');
 const networkService = require('./networkService');
 const downloadService = require('./downloadService');
@@ -222,7 +222,7 @@ async function downloadUpdate(progressCallback) {
   }
 
   const fileName = decodeURIComponent(path.basename(new URL(download.url).pathname)) || 'OUA-latest';
-  const targetPath = path.join(app.getPath('downloads'), fileName);
+  const targetPath = path.join(pathUtils.getDownloadsDir(), fileName);
 
   logger.info(`开始下载更新: ${download.url} -> ${targetPath}`);
   progressCallback({ percent: 0, message: '开始下载...' });

@@ -963,11 +963,13 @@
 
   /**
    * 根据最小化到托盘的状态显示/隐藏轻量模式开关
+   * 轻量模式仅 Windows 支持（守护进程方案），其他平台不显示该开关
    */
   function GengXinQingLiangMoShiKeJian() {
     if (!QingLiangMoShiLieBiao) return;
+    const zhiChiPingTai = !window.electronAPI || window.electronAPI.platform === 'win32';
     const tuoPanKaiQi = KaiGuanZuiXiaoHuaTuoPan && KaiGuanZuiXiaoHuaTuoPan.checked;
-    QingLiangMoShiLieBiao.classList.toggle('YinCang', !tuoPanKaiQi);
+    QingLiangMoShiLieBiao.classList.toggle('YinCang', !zhiChiPingTai || !tuoPanKaiQi);
   }
 
   /**

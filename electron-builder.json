@@ -18,6 +18,16 @@
     "!PROJECT.md"
   ],
   "copyright": "Copyright © 2026 ByRUDAN",
+  "extraResources": [
+    {
+      "from": "tools/hotkey-helper.exe",
+      "to": "hotkey-helper.exe"
+    },
+    {
+      "from": "renderer/assets/icons/icon.ico",
+      "to": "icon.ico"
+    }
+  ],
   "win": {
     "icon": "renderer/assets/icons/icon.ico",
     "target": [

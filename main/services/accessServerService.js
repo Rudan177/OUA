@@ -43,6 +43,40 @@ let controlHandlers = {
   onStop: null
 };
 
+// 守护进程模式：true 时 Electron 专属接口返回 needWindow，由守护进程接管
+let daemonMode = false;
+// 守护进程注入：唤醒 / 退出 控制回调
+let daemonCallbacks = {
+  onWake: null,
+  onExit: null
+};
+
+/**
+ * 设置守护进程模式
+ * @param {boolean} enabled
+ */
+function setDaemonMode(enabled) {
+  daemonMode = !!enabled;
+}
+
+/**
+ * 注入守护进程控制回调（唤醒主程序 / 退出守护进程）
+ * @param {{onWake?: Function, onExit?: Function}} callbacks
+ */
+function setDaemonCallbacks(callbacks) {
+  if (callbacks) {
+    if (typeof callbacks.onWake === 'function') daemonCallbacks.onWake = callbacks.onWake;
+    if (typeof callbacks.onExit === 'function') daemonCallbacks.onExit = callbacks.onExit;
+  }
+}
+
+/**
+ * 守护模式下 Electron 专属接口的统一返回：提示需打开主界面
+ */
+function needWindowError() {
+  return { ok: false, needWindow: true, error: '此操作需要在主界面中执行，请先打开主界面' };
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.htm': 'text/html; charset=utf-8',
@@ -168,12 +202,15 @@ function buildHandlers() {
       configService.setInstallDir(args[0]);
       return true;
     },
-    'get-user-paths': () => ({
-      documents: app.getPath('documents'),
-      desktop: app.getPath('desktop'),
-      home: app.getPath('home'),
-      appData: app.getPath('appData')
-    }),
+    'get-user-paths': () => {
+      if (daemonMode) return needWindowError();
+      return {
+        documents: app.getPath('documents'),
+        desktop: app.getPath('desktop'),
+        home: app.getPath('home'),
+        appData: app.getPath('appData')
+      };
+    },
     'import-local-zip': async (args) => {
       const zipPath = args[0];
       const installDir = configService.getInstallDir();
@@ -206,6 +243,7 @@ function buildHandlers() {
       return results;
     },
     'app-reset': async () => {
+      if (daemonMode) return needWindowError();
       logger.info('[可访问性] 开始恢复出厂设置...');
       appService.cleanUserData();
       logger.info('[可访问性] 恢复出厂设置完成，准备重启...');
@@ -213,11 +251,13 @@ function buildHandlers() {
       return true;
     },
     'app-restart': async () => {
+      if (daemonMode) return needWindowError();
       logger.info('[可访问性] 开始完全关闭并重启应用...');
       relaunchAndExit(0);
       return true;
     },
     'app-uninstall': async () => {
+      if (daemonMode) return needWindowError();
       logger.info('[可访问性] 开始一键卸载...');
       appService.removeInstallDir();
       appService.cleanUserData();
@@ -226,6 +266,7 @@ function buildHandlers() {
       return true;
     },
     'window-hide': () => {
+      if (daemonMode) return needWindowError();
       const win = BrowserWindow.getAllWindows()[0];
       if (win) win.hide();
       return true;
@@ -241,6 +282,10 @@ function buildHandlers() {
     'set-startup-config': (args) => {
       const startupConfig = args[0];
       configService.setStartupConfig(startupConfig);
+      if (daemonMode) {
+        // 守护进程无 Electron：仅保存配置，开机自启注册由主界面打开时重新应用
+        return true;
+      }
       if (startupConfig.launchOnBoot) {
         app.setLoginItemSettings({
           openAtLogin: true,
@@ -263,6 +308,11 @@ function buildHandlers() {
     'get-hotkey-config': () => configService.getHotkeyConfig(),
     'set-hotkey-config': (args) => {
       configService.setHotkeyConfig(args[0]);
+      if (daemonMode) {
+        // 守护进程热键由 C# 托盘助手持有，新配置在下次启动守护进程时生效
+        logger.info('[可访问性] 热键配置已保存，守护进程热键将在下次进入轻量模式时生效');
+        return true;
+      }
       reRegisterHotkey();
       return true;
     },
@@ -317,6 +367,7 @@ function buildHandlers() {
 
     // ---- 对话框 ----
     'select-folder': async () => {
+      if (daemonMode) return needWindowError();
       const win = BrowserWindow.getAllWindows()[0] || null;
       const result = await dialog.showOpenDialog(win, {
         properties: ['openDirectory'],
@@ -325,6 +376,7 @@ function buildHandlers() {
       return (!result.canceled && result.filePaths.length > 0) ? result.filePaths[0] : null;
     },
     'select-zip-file': async () => {
+      if (daemonMode) return needWindowError();
       const win = BrowserWindow.getAllWindows()[0] || null;
       const result = await dialog.showOpenDialog(win, {
         properties: ['openFile'],
@@ -342,6 +394,7 @@ function buildHandlers() {
     'self-update-check': () => selfUpdateService.checkUpdate(),
     'self-update-download': () => selfUpdateService.downloadUpdate(makeProgressBroadcaster('self-update-progress')),
     'self-update-open': async (args) => {
+      if (daemonMode) return needWindowError();
       const filePath = args[0];
       if (!filePath || typeof filePath !== 'string') {
         return { ok: false, message: '无效的文件路径' };
@@ -566,6 +619,24 @@ function handleRequest(req, res) {
       return;
     }
 
+    // 守护进程控制端点：唤醒主程序 / 退出守护进程（仅本机访问，已被上方鉴权）
+    if (pathname === '/api/daemon/wake' && req.method === 'POST') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true }));
+      if (daemonCallbacks.onWake) {
+        setTimeout(() => daemonCallbacks.onWake(), 100);
+      }
+      return;
+    }
+    if (pathname === '/api/daemon/exit' && req.method === 'POST') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true }));
+      if (daemonCallbacks.onExit) {
+        setTimeout(() => daemonCallbacks.onExit(), 100);
+      }
+      return;
+    }
+
     const m = pathname.match(/^\/api\/invoke\/([A-Za-z0-9_-]+)$/);
     if (m && req.method === 'POST') {
       handleInvoke(req, res, m[1], buildHandlers());
@@ -659,5 +730,7 @@ module.exports = {
   start,
   stop,
   getStatus,
-  setControlHandlers
+  setControlHandlers,
+  setDaemonMode,
+  setDaemonCallbacks
 };

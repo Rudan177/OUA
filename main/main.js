@@ -4,6 +4,7 @@
 const { app, BrowserWindow, ipcMain, nativeTheme, Tray, Menu, globalShortcut, nativeImage, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn, execFile } = require('child_process');
 
 // 标记开发/打包环境，供 preload 与渲染进程使用（开发环境才启用诊断等调试功能）
 process.env.OUA_DEV = app.isPackaged ? '0' : '1';
@@ -25,6 +26,7 @@ let mainWindow;
 let tray = null;
 let isRestarting = false;
 let isQuitting = false;
+let isEnteringDaemon = false;
 
 function getAppIcon() {
   const iconDir = path.join(__dirname, '..', 'renderer', 'assets', 'icons');
@@ -117,6 +119,115 @@ function getTitleBarStyle() {
   return 'default';
 }
 
+/**
+ * 获取轻量模式守护进程文件路径（打包后在 asar 内，ELECTRON_RUN_AS_NODE 可读）
+ */
+function getDaemonJsPath() {
+  return path.join(__dirname, 'daemon.js');
+}
+
+/**
+ * 获取 C# 托盘助手 exe 路径
+ */
+function getHelperExePath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'hotkey-helper.exe');
+  }
+  return path.join(__dirname, '..', 'tools', 'hotkey-helper.exe');
+}
+
+/**
+ * 获取 C# 托盘助手使用的托盘图标路径
+ */
+function getHelperIconPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'icon.ico');
+  }
+  return path.join(__dirname, '..', 'renderer', 'assets', 'icons', 'icon.ico');
+}
+
+/**
+ * 拉起轻量模式守护进程（win32）
+ * 以 ELECTRON_RUN_AS_NODE=1 方式用主程序 exe 运行 main/daemon.js，不加载 Chromium
+ * @returns {ChildProcess|null}
+ */
+function qidongShouHuJinCheng() {
+  if (process.platform !== 'win32') {
+    logger.warn('非 Windows 平台不支持轻量模式守护进程');
+    return null;
+  }
+  const daemonJs = getDaemonJsPath();
+  const helperExe = getHelperExePath();
+  const helperIcon = getHelperIconPath();
+
+  const env = {
+    ...process.env,
+    OUA_PACKAGED: app.isPackaged ? '1' : '0',
+    OUA_APP_ROOT: pathUtils.getAppRoot(),
+    OUA_USER_DATA: pathUtils.getStorageDir(),
+    OUA_MAIN_EXE: process.execPath,
+    // 开发模式拉起主程序需带上项目目录参数（打包后 exe 直接启动）
+    OUA_MAIN_ARGS: app.isPackaged ? '' : JSON.stringify([pathUtils.getAppRoot()]),
+    OUA_HELPER_EXE: helperExe,
+    OUA_HELPER_ICON: helperIcon,
+    ELECTRON_RUN_AS_NODE: '1'
+  };
+
+  try {
+    const child = spawn(process.execPath, [daemonJs], {
+      env,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    });
+    child.unref();
+    logger.info(`守护进程已拉起: PID=${child.pid}，daemon.js=${daemonJs}`);
+    return child;
+  } catch (error) {
+    logger.error(`拉起守护进程失败: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * 清理启动时残留的守护进程（win32）
+ * 上一次守护进程可能崩溃残留，或用户手动启动 exe 时旧守护进程仍存活
+ */
+function qingLiShouHuJinCheng() {
+  if (process.platform !== 'win32') return;
+  try {
+    const pidFile = path.join(pathUtils.getStorageDir(), 'daemon.pid');
+    if (!fs.existsSync(pidFile)) return;
+    const oldPid = parseInt(fs.readFileSync(pidFile, 'utf8'), 10);
+    if (!oldPid) return;
+    // 进程存在则结束（含其 C# 托盘助手子进程），否则只清理残留文件
+    try {
+      process.kill(oldPid, 0);
+      execFile('taskkill', ['/PID', String(oldPid), '/T', '/F'], { windowsHide: true }, () => {
+        try { fs.unlinkSync(pidFile); } catch (_) {}
+      });
+      logger.info(`已结束残留守护进程: ${oldPid}`);
+    } catch (e) {
+      try { fs.unlinkSync(pidFile); } catch (_) {}
+    }
+  } catch (error) {
+    logger.warn(`清理残留守护进程失败: ${error.message}`);
+  }
+}
+
+/**
+ * 启动 HTTP server 并重试（刚清理过守护进程时端口可能短暂占用）
+ */
+async function startHttpWithRetry(config, retries = 8) {
+  for (let i = 0; i < retries; i++) {
+    const result = await httpServerService.qiDong(config);
+    if (result && result.ok) return result;
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  logger.error('HTTP Server 启动失败（多次重试后放弃）');
+  return null;
+}
+
 function createWindow(silentMode = false) {
   const appIcon = getAppIcon();
   mainWindow = new BrowserWindow({
@@ -181,27 +292,22 @@ function createWindow(silentMode = false) {
   mainWindow.on('close', (event) => {
     if (!isRestarting) {
       const startupConfig = configService.getStartupConfig();
-      if (startupConfig.lightweightMode) {
-        // 轻量模式：销毁窗口释放 Chromium 渲染进程内存，保留主进程和托盘
+      if (startupConfig.lightweightMode && process.platform === 'win32') {
+        // 轻量模式：Electron 完全退出，由守护进程 + C# 托盘助手接管
         event.preventDefault();
-        if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
-          // webContents.destroy() 立即终止 Chromium 渲染进程（Electron 28+）
-          mainWindow.webContents.destroy();
-        }
-        mainWindow.destroy();
-        // 诊断：destroy 后延迟输出每个进程的类型与内存，用于确认渲染进程是否释放
-        setTimeout(() => {
-          // 主动触发主进程 V8 垃圾回收，回收已销毁对象占用的堆内存
-          if (typeof global.gc === 'function') {
-            global.gc();
-          }
-          const metrics = app.getAppMetrics().map((m) => {
-            const mb = Math.round((m.memory.workingSetSize || 0) / 1024 / 1024);
-            return m.type + '(' + m.pid + ')=' + mb + 'MB';
-          }).join(' ');
-          logger.info('轻量模式：关闭后进程=' + metrics);
-          logger.info('轻量模式：主进程RSS=' + Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB');
-        }, 3000);
+        if (isEnteringDaemon) return; // 防重入
+        isEnteringDaemon = true;
+        logger.info('轻量模式：关闭窗口，进入守护进程模式');
+        // 先停掉 HTTP server（异步），避免与守护进程端口冲突，再拉起守护进程并退出
+        httpServerService.guanBi().then(() => {
+          qidongShouHuJinCheng();
+          isQuitting = true;
+          app.exit(0);
+        }).catch(() => {
+          qidongShouHuJinCheng();
+          isQuitting = true;
+          app.exit(0);
+        });
       } else if (startupConfig.minimizeToTray && !isQuitting) {
         event.preventDefault();
         mainWindow.hide();
@@ -767,14 +873,32 @@ app.whenReady().then(() => {
   registerUpdateIPC();
   registerDialogIPC();
 
-  // 恢复可访问性 HTTP server（如果之前已启用）
+  // 清理残留守护进程（win32），避免与当前实例端口冲突
+  qingLiShouHuJinCheng();
+
+  // 恢复可访问性 HTTP server（如果之前已启用）；重试以覆盖守护进程端口释放窗口
   const accessibilityConfig = configService.getAccessibilityConfig();
   if (accessibilityConfig.enabled) {
-    httpServerService.qiDong(accessibilityConfig);
+    startHttpWithRetry(accessibilityConfig);
   }
 
   const startupConfig = configService.getStartupConfig();
   const silentMode = process.argv.includes('--silent') && startupConfig.launchOnBoot && startupConfig.minimizeToTray;
+
+  // 轻量模式（仅 win32）：开机自启时直接进入守护进程模式，不创建窗口、不加载 Chromium
+  if (silentMode && startupConfig.lightweightMode && process.platform === 'win32') {
+    logger.info('轻量模式：开机自启，直接进入守护进程模式');
+    isQuitting = true;
+    isEnteringDaemon = true;
+    httpServerService.guanBi().then(() => {
+      qidongShouHuJinCheng();
+      app.exit(0);
+    }).catch(() => {
+      qidongShouHuJinCheng();
+      app.exit(0);
+    });
+    return;
+  }
 
   createWindow(silentMode);
   createTray();
@@ -824,12 +948,6 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (isRestarting) {
-    return;
-  }
-  const startupConfig = configService.getStartupConfig();
-  // 轻量模式下仅当用户主动退出时才结束进程，否则保持托盘运行
-  if (startupConfig.lightweightMode && !isQuitting) {
-    logger.info('轻量模式：window-all-closed 触发，保留进程');
     return;
   }
   if (process.platform !== 'darwin') {
