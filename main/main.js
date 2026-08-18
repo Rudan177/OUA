@@ -181,15 +181,13 @@ function createWindow(silentMode = false) {
   });
 
   mainWindow.on('close', (event) => {
-    if (!isQuitting && !isRestarting) {
+    if (!isRestarting) {
       const startupConfig = configService.getStartupConfig();
       if (startupConfig.lightweightMode) {
-        // 轻量模式：销毁窗口释放 Chromium 渲染进程内存，保留主进程和托盘
+        // 轻量模式：无论是否正在退出，关闭窗口时都销毁渲染进程释放内存
         event.preventDefault();
-        logger.info('轻量模式：destroy前内存RSS=' + Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB，窗口数=' + BrowserWindow.getAllWindows().length);
         mainWindow.destroy();
-        logger.info('轻量模式：destroy后内存RSS=' + Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB，窗口数=' + BrowserWindow.getAllWindows().length);
-      } else if (startupConfig.minimizeToTray) {
+      } else if (startupConfig.minimizeToTray && !isQuitting) {
         event.preventDefault();
         mainWindow.hide();
       }
@@ -802,9 +800,9 @@ app.on('window-all-closed', () => {
   if (isRestarting) {
     return;
   }
-  // 轻量模式：窗口全部关闭后保留进程，托盘图标仍可用
   const startupConfig = configService.getStartupConfig();
-  if (startupConfig.lightweightMode) {
+  // 轻量模式下仅当用户主动退出时才结束进程，否则保持托盘运行
+  if (startupConfig.lightweightMode && !isQuitting) {
     logger.info('轻量模式：window-all-closed 触发，保留进程');
     return;
   }
