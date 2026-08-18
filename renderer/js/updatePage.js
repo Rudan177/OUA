@@ -21,6 +21,8 @@
   const KaiGuanKaiJiQiDong = document.getElementById('KaiGuan-KaiJiQiDong');
   const KaiGuanZuiXiaoHuaTuoPan = document.getElementById('KaiGuan-ZuiXiaoHua-TuoPan');
   const KaiGuanZiDongGengXin = document.getElementById('KaiGuan-ZiDong-GengXin');
+  const KaiGuanQingLiangMoShi = document.getElementById('KaiGuan-QingLiang-MoShi');
+  const QingLiangMoShiLieBiao = document.getElementById('QingLiang-MoShi-LieBiao');
   const KaiGuanReJian = document.getElementById('KaiGuan-ReJian');
   const ReJianPeiZhiRongQi = document.getElementById('ReJian-PeiZhi-RongQi');
   const ReJianXianShi = document.getElementById('ReJian-XianShi');
@@ -858,6 +860,9 @@
     if (KaiGuanZiDongGengXin) {
       KaiGuanZiDongGengXin.checked = startupConfig.autoUpdate || false;
     }
+    if (KaiGuanQingLiangMoShi) {
+      KaiGuanQingLiangMoShi.checked = startupConfig.lightweightMode || false;
+    }
 
     // 加载热键配置
     const hotkeyConfig = await window.electronAPI.settings.getHotkeyConfig();
@@ -887,13 +892,17 @@
       GengXinZhuangTaiWenBen.textContent = '本地模式：可导入 ZIP 压缩包';
       AnNiuGengXin.classList.add('YinCang');
     }
+
+    // 根据托盘开关状态显示/隐藏轻量模式行
+    GengXinQingLiangMoShiKeJian();
   }
 
   async function Baocunqidongshezhi() {
     const startupConfig = {
       launchOnBoot: KaiGuanKaiJiQiDong ? KaiGuanKaiJiQiDong.checked : false,
       minimizeToTray: KaiGuanZuiXiaoHuaTuoPan ? KaiGuanZuiXiaoHuaTuoPan.checked : false,
-      autoUpdate: KaiGuanZiDongGengXin ? KaiGuanZiDongGengXin.checked : false
+      autoUpdate: KaiGuanZiDongGengXin ? KaiGuanZiDongGengXin.checked : false,
+      lightweightMode: KaiGuanQingLiangMoShi ? KaiGuanQingLiangMoShi.checked : false
     };
     await window.electronAPI.settings.setStartupConfig(startupConfig);
   }
@@ -906,10 +915,21 @@
     // 最小化到托盘状态变化时，联动显示/隐藏整个热键卡片
     KaiGuanZuiXiaoHuaTuoPan.addEventListener('change', () => {
       GengXinReJianKaPianKeJian();
+      GengXinQingLiangMoShiKeJian();
     });
   }
   if (KaiGuanZiDongGengXin) {
     KaiGuanZiDongGengXin.addEventListener('change', Baocunqidongshezhi);
+  }
+  if (KaiGuanQingLiangMoShi) {
+    KaiGuanQingLiangMoShi.addEventListener('change', async () => {
+      const isLightweight = KaiGuanQingLiangMoShi.checked;
+      // 开启轻量模式时，自动启用最小化到托盘
+      if (isLightweight && KaiGuanZuiXiaoHuaTuoPan) {
+        KaiGuanZuiXiaoHuaTuoPan.checked = true;
+      }
+      await Baocunqidongshezhi();
+    });
   }
 
   // =============================================
@@ -939,6 +959,15 @@
         QuXiaoLuRu();
       }
     }
+  }
+
+  /**
+   * 根据最小化到托盘的状态显示/隐藏轻量模式开关
+   */
+  function GengXinQingLiangMoShiKeJian() {
+    if (!QingLiangMoShiLieBiao) return;
+    const tuoPanKaiQi = KaiGuanZuiXiaoHuaTuoPan && KaiGuanZuiXiaoHuaTuoPan.checked;
+    QingLiangMoShiLieBiao.classList.toggle('YinCang', !tuoPanKaiQi);
   }
 
   /**

@@ -556,6 +556,10 @@ html[data-theme="dark"] .TuoZhua-NeiRong {
   white-space: nowrap;
 }
 
+.QingLiang-MoShi-Margin {
+  margin-top: 12px;
+}
+
 /* 通知列表 */
 .Bb-LieBiao {
   display: flex;

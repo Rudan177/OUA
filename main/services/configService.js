@@ -76,7 +76,8 @@ function getDefaultConfig() {
     startup: {
       launchOnBoot: false,
       minimizeToTray: false,
-      autoUpdate: false
+      autoUpdate: false,
+      lightweightMode: false
     },
     hotkey: {
       enabled: false,
@@ -104,6 +105,13 @@ function normalizeConfig() {
   }
   if (configData.accessibility.enabled && !configData.accessibility.token) {
     configData.accessibility.token = generateAccessibilityToken();
+    changed = true;
+  }
+  if (!configData.startup) {
+    configData.startup = { launchOnBoot: false, minimizeToTray: false, autoUpdate: false, lightweightMode: false };
+    changed = true;
+  } else if (configData.startup.lightweightMode === undefined) {
+    configData.startup.lightweightMode = false;
     changed = true;
   }
   if (changed) {
@@ -194,7 +202,8 @@ function setStartupConfig(startupConfig) {
   configData.startup = {
     launchOnBoot: startupConfig.launchOnBoot || false,
     minimizeToTray: startupConfig.minimizeToTray || false,
-    autoUpdate: startupConfig.autoUpdate || false
+    autoUpdate: startupConfig.autoUpdate || false,
+    lightweightMode: startupConfig.lightweightMode || false
   };
   saveConfig();
   logger.info('启动配置已保存');
@@ -208,7 +217,8 @@ function getStartupConfig() {
   return configData.startup || {
     launchOnBoot: false,
     minimizeToTray: false,
-    autoUpdate: false
+    autoUpdate: false,
+    lightweightMode: false
   };
 }
 

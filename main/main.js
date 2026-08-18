@@ -182,7 +182,11 @@ function createWindow(silentMode = false) {
   mainWindow.on('close', (event) => {
     if (!isQuitting && !isRestarting) {
       const startupConfig = configService.getStartupConfig();
-      if (startupConfig.minimizeToTray) {
+      if (startupConfig.lightweightMode) {
+        // 轻量模式：关闭窗口即退出，保留托盘图标供用户手动退出
+        isQuitting = true;
+        app.quit();
+      } else if (startupConfig.minimizeToTray) {
         event.preventDefault();
         mainWindow.hide();
       }
@@ -520,39 +524,103 @@ function createTray() {
     tray.setIgnoreDoubleClickEvents(true);
   }
 
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: '显示窗口',
-      click: () => {
-        if (mainWindow) {
-          mainWindow.show();
-          mainWindow.focus();
+  const startupConfig = configService.getStartupConfig();
+  const lightweightMode = startupConfig.lightweightMode;
+
+  // 轻量模式：窗口关闭后仅显示退出选项；否则显示显示窗口 + 退出
+  const menuItems = lightweightMode
+    ? [{ label: '退出', click: () => { isQuitting = true; app.quit(); } }]
+    : [
+        {
+          label: '显示窗口',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.focus();
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: '退出',
+          click: () => {
+            isQuitting = true;
+            app.quit();
+          }
         }
-      }
-    },
-    { type: 'separator' },
-    {
-      label: '退出',
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      }
-    }
-  ]);
+      ];
+
+  // 轻量模式：根据窗口当前可见性初始化菜单
+  let contextMenu;
+  if (lightweightMode && mainWindow) {
+    const items = mainWindow.isVisible()
+      ? [
+          { label: '隐藏窗口', click: () => mainWindow.hide() },
+          { type: 'separator' },
+          { label: '退出', click: () => { isQuitting = true; app.quit(); } }
+        ]
+      : [
+          { label: '退出', click: () => { isQuitting = true; app.quit(); } }
+        ];
+    contextMenu = Menu.buildFromTemplate(items);
+  } else {
+    contextMenu = Menu.buildFromTemplate(menuItems);
+  }
   tray.setToolTip('OOOInterface Update Assistant');
   tray.setContextMenu(contextMenu);
+
+  // 轻量模式：监听窗口显示状态变化，同步更新托盘菜单
+  if (lightweightMode && mainWindow) {
+    mainWindow.on('show', () => {
+      updateTrayMenu();
+    });
+    mainWindow.on('hide', () => {
+      updateTrayMenu();
+    });
+    // 初始化时根据窗口当前可见性设置正确的菜单
+    updateTrayMenu();
+  }
 
   if (process.platform !== 'darwin') {
     tray.on('double-click', () => {
       if (mainWindow) {
-        if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
-          mainWindow.hide();
+        if (lightweightMode) {
+          // 轻量模式：双击托盘仅在窗口隐藏时显示窗口
+          if (mainWindow.isVisible()) {
+            mainWindow.hide();
+          } else {
+            mainWindow.show();
+            mainWindow.focus();
+          }
         } else {
-          mainWindow.show();
-          mainWindow.focus();
+          if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+            mainWindow.hide();
+          } else {
+            mainWindow.show();
+            mainWindow.focus();
+          }
         }
       }
     });
+  }
+
+  /**
+   * 轻量模式专用：根据窗口可见性动态更新托盘菜单
+   */
+  function updateTrayMenu() {
+    if (!mainWindow || !lightweightMode) return;
+    const items = mainWindow.isVisible()
+      ? [
+          { label: '隐藏窗口', click: () => mainWindow.hide() },
+          { type: 'separator' },
+          { label: '退出', click: () => { isQuitting = true; app.quit(); } }
+        ]
+      : [
+          { label: '显示窗口', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
+          { type: 'separator' },
+          { label: '退出', click: () => { isQuitting = true; app.quit(); } }
+        ];
+    tray.setContextMenu(Menu.buildFromTemplate(items));
   }
 }
 
@@ -700,6 +768,11 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (isRestarting) {
+    return;
+  }
+  // 轻量模式：窗口全部关闭后保留进程，托盘图标仍可用
+  const startupConfig = configService.getStartupConfig();
+  if (startupConfig.lightweightMode) {
     return;
   }
   if (process.platform !== 'darwin') {
