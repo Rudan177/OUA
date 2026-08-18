@@ -108,11 +108,18 @@ function startHelper() {
     return;
   }
   const hotkeyConfig = configService.getHotkeyConfig();
+  const appConfigModule = require('./config/appConfig');
+  const branches = [
+    appConfigModule.git.ltsBranch,
+    appConfigModule.git.mainBranch,
+    appConfigModule.git.testBranch
+  ].filter(Boolean);
 
   const args = [
     '--main-exe', MAIN_EXE,
     '--main-args', JSON.stringify(MAIN_ARGS),
     '--storage', pathUtils.getStorageDir(),
+    '--branches', branches.join(','),
     '--hotkey', hotkeyConfig.enabled ? (hotkeyConfig.openWindow || 'Ctrl+Shift+O') : 'disabled'
   ];
   if (HELPER_ICON && fs.existsSync(HELPER_ICON)) {

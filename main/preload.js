@@ -57,6 +57,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       const handler = (_event, data) => callback(data);
       ipcRenderer.on('update-progress', handler);
       return () => ipcRenderer.removeListener('update-progress', handler);
+    },
+    onBranchSwitched: (callback) => {
+      const handler = (_event, branch) => callback(branch);
+      ipcRenderer.on('tray-branch-switched', handler);
+      return () => ipcRenderer.removeListener('tray-branch-switched', handler);
     }
   },
   dialog: {

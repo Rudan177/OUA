@@ -1,11 +1,12 @@
 // OOAInterface易升 轻量模式托盘助手
 // 基于 WinForms NotifyIcon（底层即 Windows 原生托盘 API Shell_NotifyIcon）。
-//   - 现代样式托盘菜单（ContextMenuStrip，跟随系统主题渲染）
-//   - 全局热键：RegisterHotKey 绑定到隐藏窗体句柄，经 WndProc 可靠接收（标准 Win32 模式）
+//   - 托盘菜单：ContextMenuStrip + ToolStripRenderMode.System（跟随系统主题的 Windows 原生渲染）
+//   - 动态菜单：每次打开时重建，从 config.json 读取当前分支并高亮；含「切换分支」子菜单调用应用接口
+//   - 全局热键：RegisterHotKey 绑定隐藏窗体句柄 + WndProc 可靠接收（标准 Win32 模式）
 //   - "显示窗口"：直接启动主程序 exe（Electron 单实例锁负责聚焦已有窗口）
 //   - 热键：--toggle 切换窗口显隐；托盘左键/双击：显示窗口
 //   - "退出"：守护模式 → 结束守护进程并自杀；窗口模式 → 通知主程序 --quit 退出
-//   - 所有关键动作写入 <storage>/helper.log 便于诊断
+//   - 关键动作写入 <storage>/helper.log 便于诊断
 // 编译: csc /target:winexe /platform:x64 /optimize+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:hotkey-helper.exe hotkey-helper.cs
 using System;
 using System.Collections.Generic;
@@ -14,6 +15,7 @@ using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -39,26 +41,35 @@ namespace OuaHotkeyHelper
         private string _mainExe = "";
         private string[] _mainArgs = new string[0];
         private string _storageDir = "";
+        private List<string> _branches = new List<string>();
         private bool _trayOnly = false;
 
         private string DaemonPidFile { get { return Path.Combine(_storageDir, "daemon.pid"); } }
+        private string ConfigFile { get { return Path.Combine(_storageDir, "config.json"); } }
 
         public TrayApp(string[] args)
         {
-            // 参数: --main-exe <路径> --main-args <json数组> --storage <目录> --hotkey <组合> --icon <路径> --tray-only
+            // 参数: --main-exe <路径> --main-args <json数组> --storage <目录> --branches <逗号列表> --hotkey <组合> --icon <路径> --tray-only
             string hotkey = "";
             string iconPath = "";
+            string branches = "";
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "--main-exe" && i + 1 < args.Length) _mainExe = args[i + 1];
                 if (args[i] == "--main-args" && i + 1 < args.Length) _mainArgs = ParseJsonArray(args[i + 1]);
                 if (args[i] == "--storage" && i + 1 < args.Length) _storageDir = args[i + 1];
+                if (args[i] == "--branches" && i + 1 < args.Length) branches = args[i + 1];
                 if (args[i] == "--hotkey" && i + 1 < args.Length) hotkey = args[i + 1];
                 if (args[i] == "--icon" && i + 1 < args.Length) iconPath = args[i + 1];
                 if (args[i] == "--tray-only") _trayOnly = true;
             }
+            foreach (string b in branches.Split(new[] { ',', '，' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string t = b.Trim();
+                if (t.Length > 0) _branches.Add(t);
+            }
 
-            Log("启动: mainExe=" + _mainExe + " storage=" + _storageDir + " hotkey=" + hotkey);
+            Log("启动: mainExe=" + _mainExe + " storage=" + _storageDir + " branches=" + branches + " hotkey=" + hotkey);
 
             // 隐藏窗体（仅用于接收热键消息）
             ShowInTaskbar = false;
@@ -74,11 +85,12 @@ namespace OuaHotkeyHelper
             _tray.Text = "OOOInterface 易升";
             _tray.Visible = true;
 
-            // 现代样式托盘菜单
+            // 现代/原生渲染的托盘菜单（系统主题），每次打开时动态重建
             var menu = new ContextMenuStrip();
-            menu.Items.Add("显示窗口", null, (s, e) => ShowMainWindow());
-            menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("退出", null, (s, e) => ExitApp());
+            menu.RenderMode = ToolStripRenderMode.System;
+            menu.ShowImageMargin = false;
+            menu.Font = SystemFonts.MenuFont;
+            menu.Opening += (s, e) => RebuildMenu(menu);
             _tray.ContextMenuStrip = menu;
             _tray.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) ShowMainWindow(); };
             _tray.DoubleClick += (s, e) => ShowMainWindow();
@@ -101,6 +113,57 @@ namespace OuaHotkeyHelper
             else
             {
                 Log("未注册热键 (trayOnly=" + _trayOnly + " hotkey=" + hotkey + ")");
+            }
+        }
+
+        /// <summary>每次打开托盘菜单前重建（保持状态最新：当前分支高亮等）</summary>
+        private void RebuildMenu(ContextMenuStrip menu)
+        {
+            menu.Items.Clear();
+
+            menu.Items.Add("显示窗口", null, (s, e) => ShowMainWindow());
+
+            // 切换分支子菜单（调用应用接口）
+            if (_branches.Count > 0)
+            {
+                string current = GetCurrentBranch();
+                var branchMenu = new ToolStripMenuItem("切换分支");
+                foreach (string b in _branches)
+                {
+                    string branch = b;
+                    var item = new ToolStripMenuItem(GetBranchDisplay(branch));
+                    item.Checked = (current == branch);
+                    item.Click += (s, e) => SwitchBranch(branch);
+                    branchMenu.DropDownItems.Add(item);
+                }
+                menu.Items.Add(branchMenu);
+            }
+
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("退出", null, (s, e) => ExitApp());
+        }
+
+        /// <summary>从 config.json 读取当前分支</summary>
+        private string GetCurrentBranch()
+        {
+            try
+            {
+                if (!File.Exists(ConfigFile)) return "";
+                string text = File.ReadAllText(ConfigFile);
+                var m = Regex.Match(text, "\"branch\"\\s*:\\s*\"([^\"]+)\"");
+                return m.Success ? m.Groups[1].Value : "";
+            }
+            catch { return ""; }
+        }
+
+        private static string GetBranchDisplay(string branch)
+        {
+            switch (branch)
+            {
+                case "LTS": return "长期支持版";
+                case "main": return "正式版";
+                case "test": return "尝鲜版";
+                default: return branch;
             }
         }
 
@@ -136,7 +199,14 @@ namespace OuaHotkeyHelper
             LaunchMain("--toggle");
         }
 
-        private void LaunchMain(string extraArg)
+        /// <summary>切换分支：启动主程序带 --switch-branch <分支>，由主进程执行切换</summary>
+        private void SwitchBranch(string branch)
+        {
+            Log("托盘动作: 切换分支 " + branch);
+            LaunchMain("--switch-branch", branch);
+        }
+
+        private void LaunchMain(params string[] extraArgs)
         {
             if (string.IsNullOrEmpty(_mainExe) || !File.Exists(_mainExe))
             {
@@ -146,14 +216,21 @@ namespace OuaHotkeyHelper
             try
             {
                 var allArgs = new List<string>(_mainArgs);
-                if (!string.IsNullOrEmpty(extraArg)) allArgs.Add(extraArg);
+                if (extraArgs != null)
+                {
+                    foreach (string a in extraArgs)
+                    {
+                        if (!string.IsNullOrEmpty(a)) allArgs.Add(a);
+                    }
+                }
+                string full = BuildArgs(allArgs.ToArray());
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = _mainExe,
-                    Arguments = BuildArgs(allArgs.ToArray()),
+                    Arguments = full,
                     UseShellExecute = false
                 });
-                Log("已启动主程序: " + _mainExe + " " + BuildArgs(allArgs.ToArray()));
+                Log("已启动主程序: " + _mainExe + " " + full);
             }
             catch (Exception ex)
             {

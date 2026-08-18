@@ -1188,6 +1188,15 @@
     }
   }
 
+  // 监听托盘「切换分支」完成事件，刷新页面状态
+  if (window.electronAPI && window.electronAPI.update && window.electronAPI.update.onBranchSwitched) {
+    window.electronAPI.update.onBranchSwitched((branch) => {
+      DangQianFenZhi = branch || DangQianFenZhi;
+      GengXinTongDaoAnNiu();
+      JianChaGengXin();
+    });
+  }
+
   window.UpdatePage = {
     JianChaGengXin,
     KaiShiShouCiAnZhuang,

@@ -111,6 +111,20 @@ if (!gotTheLock) {
       }
       return;
     }
+    // C# 托盘助手「切换分支」：带 --switch-branch <分支>，在窗口模式的主进程内执行切换
+    const switchBranchIdx = argv ? argv.indexOf('--switch-branch') : -1;
+    if (switchBranchIdx >= 0 && argv[switchBranchIdx + 1]) {
+      const targetBranch = argv[switchBranchIdx + 1];
+      logger.info(`收到托盘切换分支请求: ${targetBranch}`);
+      // 分支切换可能耗时较长，先聚焦窗口让用户看到进度
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+      }
+      zhiXingTuoPanQieHuanFenZhi(targetBranch);
+      return;
+    }
     // 当第二个实例尝试启动时，聚焦到第一个实例的窗口
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -118,6 +132,67 @@ if (!gotTheLock) {
       mainWindow.focus();
     }
   });
+}
+
+/**
+ * 分支切换进度文件（托盘切换时写入，渲染进程轮询展示进度）
+ */
+function getBranchProgressFile() {
+  return path.join(pathUtils.getStorageDir(), 'branch-switch-progress.json');
+}
+
+/**
+ * 清理分支切换进度残留文件
+ */
+function qingLiFenZhiJinDu() {
+  try {
+    const file = getBranchProgressFile();
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+  } catch (e) { /* ignore */ }
+}
+
+/**
+ * 执行托盘「切换分支」操作（在窗口模式主进程内运行）
+ * 写入进度文件，由渲染进程轮询展示；完成后触发窗口刷新
+ */
+async function zhiXingTuoPanQieHuanFenZhi(targetBranch) {
+  const progressFile = getBranchProgressFile();
+  const writeProgress = (percent, message) => {
+    try {
+      fs.writeFileSync(progressFile, JSON.stringify({ percent, message, branch: targetBranch }), 'utf8');
+    } catch (e) { /* ignore */ }
+  };
+
+  try {
+    const installDir = configService.getInstallDir();
+    if (!installDir) {
+      writeProgress(0, '未设置安装目录，请先在主界面选择');
+      return;
+    }
+    // 本地模式不允许切换远程分支
+    if (configService.getBranch() === 'local') {
+      writeProgress(0, '当前是本地模式，请先切换到远程模式');
+      return;
+    }
+
+    writeProgress(0, '正在切换通道...');
+    configService.setBranch(targetBranch);
+
+    const updateService = require('./services/updateService');
+    await updateService.switchBranch(installDir, targetBranch, (progress) => {
+      writeProgress(progress.percent || 0, progress.message || '切换中...');
+    });
+
+    writeProgress(100, '切换完成');
+    logger.info(`托盘切换分支完成: ${targetBranch}`);
+    // 通知渲染进程刷新（若窗口已打开）
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('tray-branch-switched', targetBranch);
+    }
+  } catch (error) {
+    logger.error(`托盘切换分支失败: ${error.message}`);
+    writeProgress(-1, '切换失败: ' + error.message);
+  }
 }
 
 // 只在开发环境下设置自定义的 userData 路径
@@ -174,10 +249,17 @@ function getTuoPanZhuShouArgs() {
   const hotkeyConfig = configService.getHotkeyConfig();
   // 开发模式拉起主程序需带上项目目录参数（打包后 exe 直接启动）
   const mainArgs = app.isPackaged ? [] : [pathUtils.getAppRoot()];
+  const appConfigModule = require('./config/appConfig');
+  const branches = [
+    appConfigModule.git.ltsBranch,
+    appConfigModule.git.mainBranch,
+    appConfigModule.git.testBranch
+  ].filter(Boolean);
   const args = [
     '--main-exe', process.execPath,
     '--main-args', JSON.stringify(mainArgs),
     '--storage', pathUtils.getStorageDir(),
+    '--branches', branches.join(','),
     '--hotkey', hotkeyConfig.enabled ? (hotkeyConfig.openWindow || 'Ctrl+Shift+O') : 'disabled'
   ];
   if (helperIcon && fs.existsSync(helperIcon)) {
@@ -1001,6 +1083,9 @@ app.whenReady().then(() => {
 
   // 清理残留守护进程（win32），避免与当前实例端口冲突
   qingLiShouHuJinCheng();
+
+  // 清理托盘切换分支的进度残留文件（上次切换可能中断）
+  qingLiFenZhiJinDu();
 
   // 恢复可访问性 HTTP server（如果之前已启用）；重试以覆盖守护进程端口释放窗口
   const accessibilityConfig = configService.getAccessibilityConfig();
