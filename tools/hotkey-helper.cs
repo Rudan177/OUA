@@ -527,7 +527,84 @@ namespace OuaNativeTray
         private static void ExitApp()
         {
             int daemonPid = ReadDaemonPid();
-            if (daemonPid > 0 && IsProcessAlive(daemonPid))
+            // 判断窗口模式：存在非守护进程的同名主进程（Electron 窗口进程）即窗口模式。
+            // 注意 daemon 与 Electron 同名（ELECTRON_RUN_AS_NODE 运行），需用 PID 排除守护进程。
+            int electronPid = 0;
+            bool windowMode = false;
+            try
+            {
+                string name = Path.GetFileNameWithoutExtension(_mainExe);
+                foreach (var p in Process.GetProcessesByName(name))
+                {
+                    if (p.Id != daemonPid)
+                    {
+                        windowMode = true;
+                        electronPid = p.Id;
+                        break;
+                    }
+                }
+            }
+            catch { }
+
+            if (windowMode)
+            {
+                // 窗口模式：发 --quit 优雅退出（主进程先关闭窗口，再退出应用）。
+                // 主进程收到 --quit 后 isQuitting=true → app.quit() → 窗口 close 放行 → before-quit 结束本进程。
+                Log("窗口模式退出：通知主程序 --quit（先关闭窗口再退出）");
+                LaunchMain("--quit");
+                // 等待主程序退出（正常会由主进程 before-quit 结束本进程；轮询兜底）
+                int waited = 0;
+                bool exited = false;
+                while (waited < 8000)
+                {
+                    Thread.Sleep(500);
+                    waited += 500;
+                    if (!IsProcessAlive(electronPid))
+                    {
+                        exited = true;
+                        Log("主程序已退出");
+                        break;
+                    }
+                }
+                if (!exited)
+                {
+                    Log("主程序 8 秒未退出，兜底强杀");
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "taskkill",
+                            Arguments = "/PID " + electronPid + " /F",
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        });
+                    }
+                    catch (Exception ex) { Log("兜底强杀失败: " + ex.Message); }
+                }
+                // 清理可能残留的守护进程（避免窗口模式下守护进程仍存活）
+                if (daemonPid > 0 && IsProcessAlive(daemonPid))
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "taskkill",
+                            Arguments = "/PID " + daemonPid + " /F",
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        });
+                        Log("已清理残留守护进程: " + daemonPid);
+                    }
+                    catch (Exception ex) { Log("清理守护进程失败: " + ex.Message); }
+                }
+                for (int i = 0; i < 10 && File.Exists(DaemonPidFile); i++)
+                {
+                    try { File.Delete(DaemonPidFile); } catch { }
+                    Thread.Sleep(100);
+                }
+                PostQuitMessage(0);
+            }
+            else if (daemonPid > 0 && IsProcessAlive(daemonPid))
             {
                 // 守护模式：结束守护进程，守护进程退出时其清理逻辑会一并结束本进程（子进程）
                 try
@@ -547,28 +624,6 @@ namespace OuaNativeTray
                     try { File.Delete(DaemonPidFile); } catch { }
                     Thread.Sleep(100);
                 }
-                PostQuitMessage(0);
-            }
-            else if (IsMainRunning())
-            {
-                // 窗口模式：直接结束主程序（taskkill /F 强杀，不触发 close 事件）
-                // 避免依赖 --quit 异步链路：若 --quit 未及时到达导致 isQuitting=false，
-                // 窗口 close 会误入轻量分支拉起守护进程，使托盘"先退出又被启动"。
-                Log("窗口模式退出：直接结束主程序");
-                string mainName = Path.GetFileNameWithoutExtension(_mainExe);
-                try
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "taskkill",
-                        Arguments = "/IM \"" + mainName + "\" /F",
-                        CreateNoWindow = true,
-                        UseShellExecute = false
-                    });
-                    Log("已结束主程序: " + mainName);
-                }
-                catch (Exception ex) { Log("结束主程序失败: " + ex.Message); }
-                Thread.Sleep(1000);
                 PostQuitMessage(0);
             }
             else
@@ -789,16 +844,6 @@ namespace OuaNativeTray
                 if (args[i] == key && i + 1 < args.Length) return args[i + 1];
             }
             return "";
-        }
-
-        private static bool IsMainRunning()
-        {
-            try
-            {
-                string name = Path.GetFileNameWithoutExtension(_mainExe);
-                return Process.GetProcessesByName(name).Length > 0;
-            }
-            catch { return false; }
         }
 
         private static int ReadDaemonPid()
