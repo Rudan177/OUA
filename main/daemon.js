@@ -18,11 +18,13 @@ const { spawn, execFile } = require('child_process');
 
 const logger = require('./utils/logger');
 const pathUtils = require('./utils/pathUtils');
-const configService = require('./services/configService');
-const httpServerService = require('./services/httpServerService');
-const accessServerService = require('./services/accessServerService');
-const versionService = require('./services/versionService');
-const updateService = require('./services/updateService');
+
+// 服务模块延迟加载：进入 main() 后 require，任何加载错误都会写入日志而非静默崩溃
+let configService = null;
+let httpServerService = null;
+let accessServerService = null;
+let versionService = null;
+let updateService = null;
 
 const PID_FILE = () => path.join(pathUtils.getStorageDir(), 'daemon.pid');
 const MAIN_EXE = process.env.OUA_MAIN_EXE || '';
@@ -197,6 +199,18 @@ async function main() {
   logger.info('========== OUA 守护进程启动 ==========');
   logger.info(`PID=${process.pid} 平台=${process.platform} 打包=${pathUtils.isPackaged()}`);
   logger.info(`存储目录: ${pathUtils.getStorageDir()}`);
+
+  try {
+    // 延迟加载服务模块，加载错误写入日志
+    configService = require('./services/configService');
+    httpServerService = require('./services/httpServerService');
+    accessServerService = require('./services/accessServerService');
+    versionService = require('./services/versionService');
+    updateService = require('./services/updateService');
+  } catch (error) {
+    logger.error('守护进程加载服务模块失败: ' + (error && error.stack || error));
+    process.exit(1);
+  }
 
   cleanupStaleDaemon();
 

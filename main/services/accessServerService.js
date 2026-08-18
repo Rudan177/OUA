@@ -16,7 +16,26 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { URL } = require('url');
-const { app, dialog, shell, BrowserWindow, globalShortcut } = require('electron');
+
+// Electron 对象：守护进程模式（ELECTRON_RUN_AS_NODE）下 require('electron') 会抛 MODULE_NOT_FOUND，
+// 此时各变量保持 null；Electron 专属接口已由 daemonMode 守卫拦截，不会访问到这些对象。
+let app = null;
+let dialog = null;
+let shell = null;
+let BrowserWindow = null;
+let globalShortcut = null;
+try {
+  const electron = require('electron');
+  if (electron && typeof electron === 'object') {
+    app = electron.app;
+    dialog = electron.dialog;
+    shell = electron.shell;
+    BrowserWindow = electron.BrowserWindow;
+    globalShortcut = electron.globalShortcut;
+  }
+} catch (e) {
+  // 守护进程模式：无 Electron
+}
 
 const configService = require('./configService');
 const folderService = require('./folderService');

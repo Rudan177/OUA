@@ -174,10 +174,12 @@ function qidongShouHuJinCheng() {
   };
 
   try {
+    // 守护进程日志重定向到文件，便于排查崩溃；同时避免控制台残留句柄
+    const daemonLogFile = fs.openSync(path.join(pathUtils.getLogDir(), 'daemon-console.log'), 'a');
     const child = spawn(process.execPath, [daemonJs], {
       env,
       detached: true,
-      stdio: 'ignore',
+      stdio: ['ignore', daemonLogFile, daemonLogFile],
       windowsHide: true
     });
     child.unref();
