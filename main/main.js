@@ -183,8 +183,12 @@ function createWindow(silentMode = false) {
     if (!isQuitting && !isRestarting) {
       const startupConfig = configService.getStartupConfig();
       if (startupConfig.lightweightMode) {
-        // 轻量模式：销毁窗口释放 Chromium 渲染进程内存，保留主进程和托盘
+        // 轻量模式：主动销毁渲染进程释放内存，保留主进程和托盘
         event.preventDefault();
+        if (mainWindow.webContents) {
+          mainWindow.webContents.destroy(); // 立即终止 Chromium 渲染进程
+          mainWindow.webContents.session.clearCache(); // 清理缓存，进一步释放内存
+        }
         mainWindow.destroy();
       } else if (startupConfig.minimizeToTray) {
         event.preventDefault();
@@ -562,6 +566,8 @@ function createTray() {
           { label: '退出', click: () => { isQuitting = true; app.quit(); } }
         ]
       : [
+          { label: '显示窗口', click: () => createWindow(false) },
+          { type: 'separator' },
           { label: '退出', click: () => { isQuitting = true; app.quit(); } }
         ];
     contextMenu = Menu.buildFromTemplate(items);
@@ -573,10 +579,13 @@ function createTray() {
 
   /**
    * 轻量模式：重新注册窗口事件监听并同步托盘菜单
-   * 在窗口被 destroy 后重建时需要调用，确保菜单随状态实时更新
    */
   function syncTrayMenuListeners() {
     if (!lightweightMode || !mainWindow) return;
+    // 注销旧监听，防止窗口重建后残留
+    mainWindow.removeAllListeners('show');
+    mainWindow.removeAllListeners('hide');
+    mainWindow.removeAllListeners('closed');
     mainWindow.on('show', updateTrayMenu);
     mainWindow.on('hide', updateTrayMenu);
     mainWindow.on('closed', () => {
@@ -624,25 +633,26 @@ function createTray() {
     if (!lightweightMode) return;
     const hasWindow = mainWindow !== null;
     const isVisible = hasWindow && mainWindow.isVisible();
-    const items = isVisible
-      ? [
-          { label: '隐藏窗口', click: () => mainWindow.hide() },
-          { type: 'separator' },
-          { label: '退出', click: () => { isQuitting = true; app.quit(); } }
-        ]
-      : [
-          { label: '显示窗口', click: () => {
-            if (mainWindow) {
+    const items = [
+      {
+        label: hasWindow && isVisible ? '隐藏窗口' : '显示窗口',
+        click: () => {
+          if (mainWindow) {
+            if (mainWindow.isVisible()) {
+              mainWindow.hide();
+            } else {
               mainWindow.show();
               mainWindow.focus();
-            } else {
-              createWindow(false);
-              syncTrayMenuListeners();
             }
-          }},
-          { type: 'separator' },
-          { label: '退出', click: () => { isQuitting = true; app.quit(); } }
-        ];
+          } else {
+            createWindow(false);
+            syncTrayMenuListeners();
+          }
+        }
+      },
+      { type: 'separator' },
+      { label: '退出', click: () => { isQuitting = true; app.quit(); } }
+    ];
     tray.setContextMenu(Menu.buildFromTemplate(items));
   }
 }
