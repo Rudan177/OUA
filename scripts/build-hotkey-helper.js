@@ -34,6 +34,8 @@ function main() {
     '/target:winexe',
     '/platform:x64',
     '/optimize+',
+    '/r:System.Windows.Forms.dll',
+    '/r:System.Drawing.dll',
     '/out:' + exeFile,
     csFile
   ];
