@@ -47,6 +47,7 @@ function registerUpdateIPC() {
       return { ok: false, message: '安装包文件不存在' };
     }
     // 先清除待安装记录（避免反复弹出）
+    configService.setSelfUpdate(null);
     configService.setPendingUpdatePath(null);
     logger.info(`即将重启并打开安装包: ${filePath}`);
     // app.relaunch 会在当前事件循环结束后再启动新实例
