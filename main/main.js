@@ -388,27 +388,14 @@ function qidongShouHuJinCheng() {
 function qingLiShouHuJinCheng() {
   if (process.platform !== 'win32') return;
   try {
-    // 清理残留的 C# 托盘助手（窗口模式接管后不再需要的实例）
-    try {
-      const helperPidFile = path.join(pathUtils.getStorageDir(), 'helper.pid');
-      if (fs.existsSync(helperPidFile)) {
-        const helperPid = parseInt(fs.readFileSync(helperPidFile, 'utf8'), 10);
-        if (helperPid) {
-          try {
-            process.kill(helperPid, 0);
-            execFile('taskkill', ['/PID', String(helperPid), '/F'], { windowsHide: true }, () => {});
-            logger.info(`已结束残留托盘助手: ${helperPid}`);
-          } catch (e) { /* 进程不存在 */ }
-        }
-        try { fs.unlinkSync(helperPidFile); } catch (_) {}
-      }
-    } catch (e) { /* ignore */ }
+    // 注意：不清理 C# 托盘助手——它是跨守护/窗口模式常驻共享的组件，
+    // 杀掉会与 qidongTuoPanZhuShou 产生竞态（Mutex 被未死实例占用导致新实例退出，托盘消失）。
 
     const pidFile = path.join(pathUtils.getStorageDir(), 'daemon.pid');
     if (!fs.existsSync(pidFile)) return;
     const oldPid = parseInt(fs.readFileSync(pidFile, 'utf8'), 10);
     if (!oldPid) return;
-    // 进程存在则结束（含其 C# 托盘助手子进程），否则只清理残留文件
+    // 进程存在则结束，否则只清理残留文件
     try {
       process.kill(oldPid, 0);
       execFile('taskkill', ['/PID', String(oldPid), '/T', '/F'], { windowsHide: true }, () => {

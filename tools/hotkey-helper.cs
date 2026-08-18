@@ -1,212 +1,451 @@
-// OOAInterface易升 轻量模式托盘助手
-// 基于 WinForms NotifyIcon（底层即 Windows 原生托盘 API Shell_NotifyIcon）。
-//   - 托盘菜单：ContextMenuStrip + ToolStripRenderMode.System（跟随系统主题的 Windows 原生渲染）
-//   - 动态菜单：每次打开时重建，从 config.json 读取当前分支并高亮；含「切换分支」子菜单调用应用接口
-//   - 全局热键：RegisterHotKey 绑定隐藏窗体句柄 + WndProc 可靠接收（标准 Win32 模式）
-//   - "显示窗口"：直接启动主程序 exe（Electron 单实例锁负责聚焦已有窗口）
-//   - 热键：--toggle 切换窗口显隐；托盘左键/双击：显示窗口
-//   - "退出"：守护模式 → 结束守护进程并自杀；窗口模式 → 通知主程序 --quit 退出
-//   - 关键动作写入 <storage>/helper.log 便于诊断
-// 编译: csc /target:winexe /platform:x64 /optimize+ /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:hotkey-helper.exe hotkey-helper.cs
+// OOAInterface易升 轻量模式托盘助手 —— 全 Win32 原生实现
+//   - 托盘: Shell_NotifyIcon (NIM_ADD + NOTIFYICON_VERSION_4)，回调消息收鼠标事件
+//   - 菜单: CreatePopupMenu + AppendMenu + TrackPopupMenu (系统原生 HMENU 渲染，跟随深浅色主题)
+//   - 热键: RegisterHotKey + WndProc (WM_HOTKEY)
+//   - 显示窗口: 启动主程序 exe (Electron 单实例锁聚焦)
+//   - 切换分支: 启动主程序 --switch-branch <分支>
+//   - 退出: 守护模式→结束守护进程并自杀; 窗口模式→通知主程序 --quit
+//   - 日志: <storage>/helper.log
+// 编译: csc /target:winexe /platform:x64 /optimize+ /out:hotkey-helper.exe hotkey-helper.cs
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
-using System.Windows.Forms;
 
-namespace OuaHotkeyHelper
+namespace OuaNativeTray
 {
-    internal sealed class TrayApp : Form
+    internal static class Program
     {
-        [DllImport("user32.dll")]
-        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-        [DllImport("user32.dll")]
-        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-
+        // ===== Win32 常量 =====
         private const int WM_HOTKEY = 0x0312;
-        private const int HOTKEY_ID = 0x4F55; // "OU"
+        private const int WM_DESTROY = 0x0002;
+        private const int WM_USER = 0x0400;
+        private const int WM_LBUTTONUP = 0x0202;
+        private const int WM_LBUTTONDBLCLK = 0x0203;
+        private const int WM_RBUTTONUP = 0x0205;
+        private const int WM_CONTEXTMENU = 0x007B;
+
+        private const uint NIM_ADD = 0;
+        private const uint NIM_DELETE = 2;
+        private const uint NIM_SETVERSION = 4;
+        private const uint NIF_MESSAGE = 1;
+        private const uint NIF_ICON = 2;
+        private const uint NIF_TIP = 4;
+        private const uint NOTIFYICON_VERSION_4 = 4;
+        private const uint NIN_SELECT = WM_USER + 1;
+        private const uint NIN_DOUBLE = WM_USER + 3;
+        private const uint TRAY_MSG = WM_USER + 1;
+
+        private const uint MF_STRING = 0;
+        private const uint MF_SEPARATOR = 0x800;
+        private const uint MF_CHECKED = 0x8;
+        private const uint MF_POPUP = 0x10;
+
+        private const uint TPM_RIGHTBUTTON = 0x2;
+        private const uint TPM_RETURNCMD = 0x100;
+        private const uint TPM_NONOTIFY = 0x80;
 
         private const uint MOD_ALT = 0x1;
         private const uint MOD_CONTROL = 0x2;
         private const uint MOD_SHIFT = 0x4;
         private const uint MOD_WIN = 0x8;
         private const uint MOD_NOREPEAT = 0x4000;
+        private const int HOTKEY_ID = 0x4F55;
 
-        private NotifyIcon _tray;
-        private string _mainExe = "";
-        private string[] _mainArgs = new string[0];
-        private string _storageDir = "";
-        private List<string> _branches = new List<string>();
-        private bool _trayOnly = false;
+        private const uint IMAGE_ICON = 1;
+        private const uint LR_LOADFROMFILE = 0x10;
+        private const int WS_POPUP = unchecked((int)0x80000000);
+        private const uint CW_USEDEFAULT = 0x80000000;
 
-        private string DaemonPidFile { get { return Path.Combine(_storageDir, "daemon.pid"); } }
-        private string ConfigFile { get { return Path.Combine(_storageDir, "config.json"); } }
+        // 菜单项 ID
+        private const uint ID_SHOW = 1001;
+        private const uint ID_BRANCH_BASE = 2000;
+        private const uint ID_EXIT = 3001;
 
-        public TrayApp(string[] args)
+        // ===== 结构 =====
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct NOTIFYICONDATA
         {
-            // 参数: --main-exe <路径> --main-args <json数组> --storage <目录> --branches <逗号列表> --hotkey <组合> --icon <路径> --tray-only
-            string hotkey = "";
-            string iconPath = "";
-            string branches = "";
-            for (int i = 0; i < args.Length; i++)
-            {
-                if (args[i] == "--main-exe" && i + 1 < args.Length) _mainExe = args[i + 1];
-                if (args[i] == "--main-args" && i + 1 < args.Length) _mainArgs = ParseJsonArray(args[i + 1]);
-                if (args[i] == "--storage" && i + 1 < args.Length) _storageDir = args[i + 1];
-                if (args[i] == "--branches" && i + 1 < args.Length) branches = args[i + 1];
-                if (args[i] == "--hotkey" && i + 1 < args.Length) hotkey = args[i + 1];
-                if (args[i] == "--icon" && i + 1 < args.Length) iconPath = args[i + 1];
-                if (args[i] == "--tray-only") _trayOnly = true;
-            }
-            foreach (string b in branches.Split(new[] { ',', '，' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                string t = b.Trim();
-                if (t.Length > 0) _branches.Add(t);
-            }
-
-            Log("启动: mainExe=" + _mainExe + " storage=" + _storageDir + " branches=" + branches + " hotkey=" + hotkey);
-
-            // 隐藏窗体（仅用于接收热键消息）
-            ShowInTaskbar = false;
-            FormBorderStyle = FormBorderStyle.None;
-            WindowState = FormWindowState.Minimized;
-            Opacity = 0;
-
-            // 托盘图标
-            _tray = new NotifyIcon();
-            Icon ico = null;
-            try { if (!string.IsNullOrEmpty(iconPath) && File.Exists(iconPath)) ico = new Icon(iconPath); } catch { }
-            _tray.Icon = ico ?? SystemIcons.Application;
-            _tray.Text = "OOOInterface 易升";
-            _tray.Visible = true;
-
-            // 现代/原生渲染的托盘菜单（系统主题），每次打开时动态重建
-            var menu = new ContextMenuStrip();
-            menu.RenderMode = ToolStripRenderMode.System;
-            menu.ShowImageMargin = false;
-            menu.Font = SystemFonts.MenuFont;
-            menu.Opening += (s, e) => RebuildMenu(menu);
-            _tray.ContextMenuStrip = menu;
-            _tray.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) ShowMainWindow(); };
-            _tray.DoubleClick += (s, e) => ShowMainWindow();
-
-            // 注册全局热键（绑定到本窗体句柄）
-            if (!_trayOnly && !string.IsNullOrEmpty(hotkey))
-            {
-                uint mods = 0; uint vk = 0;
-                if (TryParseHotkey(hotkey, ref mods, ref vk))
-                {
-                    IntPtr h = this.Handle; // 强制创建窗体句柄
-                    bool ok = RegisterHotKey(h, HOTKEY_ID, mods | MOD_NOREPEAT, vk);
-                    Log("注册热键 " + hotkey + " => " + (ok ? "成功" : "失败(可能被占用)"));
-                }
-                else
-                {
-                    Log("热键无法解析: " + hotkey);
-                }
-            }
-            else
-            {
-                Log("未注册热键 (trayOnly=" + _trayOnly + " hotkey=" + hotkey + ")");
-            }
+            public int cbSize;
+            public IntPtr hWnd;
+            public uint uID;
+            public uint uFlags;
+            public uint uCallbackMessage;
+            public IntPtr hIcon;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+            public string szTip;
+            public int dwState;
+            public int dwStateMask;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+            public string szInfo;
+            public uint uVersion;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
+            public string szInfoTitle;
+            public uint dwInfoFlags;
+            public Guid guidItem;
+            public IntPtr hBalloonIcon;
         }
 
-        /// <summary>每次打开托盘菜单前重建（保持状态最新：当前分支高亮等）</summary>
-        private void RebuildMenu(ContextMenuStrip menu)
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT { public int x; public int y; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSG
         {
-            menu.Items.Clear();
-
-            menu.Items.Add("显示窗口", null, (s, e) => ShowMainWindow());
-
-            // 切换分支子菜单（调用应用接口）
-            if (_branches.Count > 0)
-            {
-                string current = GetCurrentBranch();
-                var branchMenu = new ToolStripMenuItem("切换分支");
-                foreach (string b in _branches)
-                {
-                    string branch = b;
-                    var item = new ToolStripMenuItem(GetBranchDisplay(branch));
-                    item.Checked = (current == branch);
-                    item.Click += (s, e) => SwitchBranch(branch);
-                    branchMenu.DropDownItems.Add(item);
-                }
-                menu.Items.Add(branchMenu);
-            }
-
-            menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("退出", null, (s, e) => ExitApp());
+            public IntPtr hwnd;
+            public uint message;
+            public IntPtr wParam;
+            public IntPtr lParam;
+            public uint time;
+            public POINT pt;
         }
 
-        /// <summary>从 config.json 读取当前分支</summary>
-        private string GetCurrentBranch()
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct WNDCLASS
+        {
+            public uint style;
+            public WndProcDelegate lpfnWndProc;
+            public int cbClsExtra;
+            public int cbWndExtra;
+            public IntPtr hInstance;
+            public IntPtr hIcon;
+            public IntPtr hCursor;
+            public IntPtr hbrBackground;
+            public string lpszMenuName;
+            public string lpszClassName;
+        }
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        // ===== P/Invoke =====
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr CreateWindowEx(uint dwExStyle, string lpClassName, string lpWindowName,
+            int dwStyle, int x, int y, int nWidth, int nHeight, IntPtr hWndParent, IntPtr hMenu,
+            IntPtr hInstance, IntPtr lpParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern ushort RegisterClassW(ref WNDCLASS lpWndClass);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool DestroyWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+        [DllImport("user32.dll")]
+        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool Shell_NotifyIcon(uint dwMessage, ref NOTIFYICONDATA lpData);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr LoadImage(IntPtr hInst, string name, uint type, int cx, int cy, uint fuLoad);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr CreatePopupMenu();
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool AppendMenu(IntPtr hMenu, uint uFlags, IntPtr uIDNewItem, string lpNewItem);
+
+        [DllImport("user32.dll")]
+        private static extern bool DestroyMenu(IntPtr hMenu);
+
+        [DllImport("user32.dll")]
+        private static extern uint TrackPopupMenu(IntPtr hMenu, uint uFlags, int x, int y, int nReserved,
+            IntPtr hWnd, IntPtr prcRect);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out POINT lpPoint);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+
+        [DllImport("user32.dll")]
+        private static extern bool TranslateMessage(ref MSG lpMsg);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr DispatchMessage(ref MSG lpMsg);
+
+        [DllImport("user32.dll")]
+        private static extern void PostQuitMessage(int nExitCode);
+
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+        // ===== 状态 =====
+        private static IntPtr _hwnd;
+        private static WndProcDelegate _wndProc;
+        private static NOTIFYICONDATA _nid;
+        private static string _mainExe = "";
+        private static string[] _mainArgs = new string[0];
+        private static string _storageDir = "";
+        private static string _logFile = "";
+        private static List<string> _branches = new List<string>();
+        private static bool _trayOnly = false;
+        private static Mutex _mutex;
+        private static uint _hotkeyMods = 0;
+        private static uint _hotkeyVk = 0;
+
+        private const int SM_CXSMICON = 11;
+        private const int SM_CYSMICON = 12;
+
+        private static string DaemonPidFile { get { return Path.Combine(_storageDir, "daemon.pid"); } }
+        private static string ConfigFile { get { return Path.Combine(_storageDir, "config.json"); } }
+
+        [STAThread]
+        private static void Main(string[] args)
         {
             try
             {
-                if (!File.Exists(ConfigFile)) return "";
-                string text = File.ReadAllText(ConfigFile);
-                var m = Regex.Match(text, "\"branch\"\\s*:\\s*\"([^\"]+)\"");
-                return m.Success ? m.Groups[1].Value : "";
-            }
-            catch { return ""; }
-        }
+                ParseArgs(args);
 
-        private static string GetBranchDisplay(string branch)
-        {
-            switch (branch)
+                bool createdNew;
+                _mutex = new Mutex(true, "Global\\OUA_HotkeyHelper", out createdNew);
+                if (!createdNew) return; // 已有实例
+
+                // 注册窗口类
+                _wndProc = WndProc;
+                var wc = new WNDCLASS
+                {
+                    lpfnWndProc = _wndProc,
+                    hInstance = GetModuleHandle(null),
+                    lpszClassName = "OUA_TrayHelperWin",
+                    hCursor = IntPtr.Zero,
+                    hbrBackground = IntPtr.Zero
+                };
+                if (RegisterClassW(ref wc) == 0)
+                {
+                    Log("注册窗口类失败: " + Marshal.GetLastWin32Error());
+                    return;
+                }
+
+                // 创建隐藏窗口
+                _hwnd = CreateWindowEx(0, "OUA_TrayHelperWin", "OUA Helper", WS_POPUP,
+                    0, 0, 0, 0, IntPtr.Zero, IntPtr.Zero, GetModuleHandle(null), IntPtr.Zero);
+                if (_hwnd == IntPtr.Zero)
+                {
+                    Log("创建窗口失败: " + Marshal.GetLastWin32Error());
+                    return;
+                }
+
+                // 添加托盘图标
+                if (!AddTrayIcon())
+                {
+                    Log("添加托盘图标失败");
+                    return;
+                }
+
+                // 注册全局热键
+                if (!_trayOnly && _hotkeyVk != 0)
+                {
+                    bool ok = RegisterHotKey(_hwnd, HOTKEY_ID, _hotkeyMods | MOD_NOREPEAT, _hotkeyVk);
+                    Log("注册热键 => " + (ok ? "成功" : "失败(可能被占用)"));
+                }
+                else
+                {
+                    Log("未注册热键 (trayOnly=" + _trayOnly + ")");
+                }
+
+                Log("托盘助手就绪");
+
+                // 消息循环
+                MSG msg;
+                while (GetMessage(out msg, IntPtr.Zero, 0, 0))
+                {
+                    TranslateMessage(ref msg);
+                    DispatchMessage(ref msg);
+                }
+
+                // 清理
+                Shell_NotifyIcon(NIM_DELETE, ref _nid);
+                UnregisterHotKey(_hwnd, HOTKEY_ID);
+                DestroyWindow(_hwnd);
+                _mutex.ReleaseMutex();
+            }
+            catch (Exception ex)
             {
-                case "LTS": return "长期支持版";
-                case "main": return "正式版";
-                case "test": return "尝鲜版";
-                default: return branch;
+                try { Log("致命错误: " + ex); } catch { }
             }
         }
 
-        /// <summary>热键消息经隐藏窗体 WndProc 可靠接收</summary>
-        protected override void WndProc(ref Message m)
+        private static IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
         {
-            if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == HOTKEY_ID)
+            try
             {
-                Log("热键触发");
-                ToggleMainWindow();
-                return;
+                if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
+                {
+                    Log("热键触发");
+                    ToggleMainWindow();
+                    return IntPtr.Zero;
+                }
+                if (msg == TRAY_MSG)
+                {
+                    uint action = (uint)lParam.ToInt64();
+                    if (action == WM_LBUTTONUP || action == NIN_SELECT ||
+                        action == WM_LBUTTONDBLCLK || action == NIN_DOUBLE)
+                    {
+                        Log("托盘左键/双击触发");
+                        ShowMainWindow();
+                    }
+                    else if (action == WM_RBUTTONUP || action == WM_CONTEXTMENU)
+                    {
+                        ShowContextMenu();
+                    }
+                    return IntPtr.Zero;
+                }
+                if (msg == WM_DESTROY)
+                {
+                    PostQuitMessage(0);
+                    return IntPtr.Zero;
+                }
             }
-            base.WndProc(ref m);
+            catch (Exception ex)
+            {
+                Log("WndProc 异常: " + ex.Message);
+            }
+            return DefWindowProc(hWnd, msg, wParam, lParam);
         }
 
-        protected override void OnFormClosed(FormClosedEventArgs e)
+        // ===== 托盘 =====
+        private static bool AddTrayIcon()
         {
-            try { UnregisterHotKey(this.Handle, HOTKEY_ID); } catch { }
-            if (_tray != null) { _tray.Visible = false; _tray.Dispose(); }
-            base.OnFormClosed(e);
+            _nid = new NOTIFYICONDATA();
+            _nid.cbSize = Marshal.SizeOf(typeof(NOTIFYICONDATA));
+            _nid.hWnd = _hwnd;
+            _nid.uID = 1;
+            _nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+            _nid.uCallbackMessage = TRAY_MSG;
+            _nid.szTip = "OOOInterface 易升";
+
+            // 加载托盘图标
+            string iconPath = "";
+            for (int i = 0; i < Environment.GetCommandLineArgs().Length; i++)
+            {
+                if (Environment.GetCommandLineArgs()[i] == "--icon" && i + 1 < Environment.GetCommandLineArgs().Length)
+                    iconPath = Environment.GetCommandLineArgs()[i + 1];
+            }
+            if (string.IsNullOrEmpty(iconPath)) iconPath = ParseArg("--icon");
+            IntPtr hIcon = IntPtr.Zero;
+            if (!string.IsNullOrEmpty(iconPath) && File.Exists(iconPath))
+            {
+                hIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON,
+                    GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
+            }
+            if (hIcon == IntPtr.Zero)
+            {
+                // 兜底：系统图标
+                hIcon = LoadIcon(IntPtr.Zero, "IDI_APPLICATION");
+            }
+            _nid.hIcon = hIcon;
+
+            if (!Shell_NotifyIcon(NIM_ADD, ref _nid)) return false;
+
+            // 使用 v4 通知行为（NIN_SELECT / NIN_DOUBLE）
+            var verData = _nid;
+            verData.uFlags = 0;
+            verData.uVersion = NOTIFYICON_VERSION_4;
+            Shell_NotifyIcon(NIM_SETVERSION, ref verData);
+            Log("托盘图标已添加");
+            return true;
         }
 
-        /// <summary>显示窗口：直接启动主程序 exe，单实例锁负责聚焦已有窗口</summary>
-        private void ShowMainWindow()
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr LoadIcon(IntPtr hInst, string lpIconName);
+
+        // ===== 菜单 =====
+        private static void ShowContextMenu()
         {
-            Log("托盘动作: 显示窗口");
+            try
+            {
+                IntPtr menu = CreatePopupMenu();
+                if (menu == IntPtr.Zero) return;
+
+                // 显示窗口
+                AppendMenu(menu, MF_STRING, (IntPtr)ID_SHOW, "显示窗口");
+
+                // 切换分支子菜单（当前分支勾选）
+                if (_branches.Count > 0)
+                {
+                    string current = GetCurrentBranch();
+                    IntPtr branchMenu = CreatePopupMenu();
+                    for (int i = 0; i < _branches.Count; i++)
+                    {
+                        uint flags = MF_STRING;
+                        if (_branches[i] == current) flags |= MF_CHECKED;
+                        AppendMenu(branchMenu, flags, (IntPtr)(ID_BRANCH_BASE + (uint)i), GetBranchDisplay(_branches[i]));
+                    }
+                    AppendMenu(menu, MF_STRING | MF_POPUP, branchMenu, "切换分支");
+                }
+
+                // 分隔线 + 退出
+                AppendMenu(menu, MF_SEPARATOR, IntPtr.Zero, null);
+                AppendMenu(menu, MF_STRING, (IntPtr)ID_EXIT, "退出");
+
+                // 显示菜单
+                POINT pt;
+                GetCursorPos(out pt);
+                SetForegroundWindow(_hwnd);
+                uint cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
+                    pt.x, pt.y, 0, _hwnd, IntPtr.Zero);
+                DestroyMenu(menu);
+
+                // 分发命令
+                if (cmd == ID_SHOW)
+                {
+                    Log("菜单: 显示窗口");
+                    ShowMainWindow();
+                }
+                else if (cmd == ID_EXIT)
+                {
+                    Log("菜单: 退出");
+                    ExitApp();
+                }
+                else if (cmd >= ID_BRANCH_BASE && cmd < ID_BRANCH_BASE + (uint)_branches.Count)
+                {
+                    string branch = _branches[(int)(cmd - ID_BRANCH_BASE)];
+                    Log("菜单: 切换分支 " + branch);
+                    SwitchBranch(branch);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log("显示菜单异常: " + ex.Message);
+            }
+        }
+
+        // ===== 动作 =====
+        private static void ShowMainWindow()
+        {
             LaunchMain(null);
         }
 
-        /// <summary>切换窗口显隐：启动主程序带 --toggle，单实例锁切换可见性</summary>
-        private void ToggleMainWindow()
+        private static void ToggleMainWindow()
         {
             LaunchMain("--toggle");
         }
 
-        /// <summary>切换分支：启动主程序带 --switch-branch <分支>，由主进程执行切换</summary>
-        private void SwitchBranch(string branch)
+        private static void SwitchBranch(string branch)
         {
-            Log("托盘动作: 切换分支 " + branch);
             LaunchMain("--switch-branch", branch);
         }
 
-        private void LaunchMain(params string[] extraArgs)
+        private static void LaunchMain(params string[] extraArgs)
         {
             if (string.IsNullOrEmpty(_mainExe) || !File.Exists(_mainExe))
             {
@@ -238,10 +477,8 @@ namespace OuaHotkeyHelper
             }
         }
 
-        /// <summary>退出：守护模式杀守护进程；窗口模式通知主程序 --quit；无进程则直接退出</summary>
-        private void ExitApp()
+        private static void ExitApp()
         {
-            Log("托盘动作: 退出");
             int daemonPid = ReadDaemonPid();
             if (daemonPid > 0 && IsProcessAlive(daemonPid))
             {
@@ -263,24 +500,94 @@ namespace OuaHotkeyHelper
                     try { File.Delete(DaemonPidFile); } catch { }
                     Thread.Sleep(100);
                 }
-                Close();
+                PostQuitMessage(0);
             }
             else if (IsMainRunning())
             {
                 // 窗口模式：通知主程序正常退出
                 LaunchMain("--quit");
-                // 主程序 before-quit 会结束本进程；兜底 5 秒后自行退出
-                Thread.Sleep(5000);
-                Close();
+                Thread.Sleep(5000); // 主程序 before-quit 会结束本进程；兜底 5 秒后自退
+                PostQuitMessage(0);
             }
             else
             {
-                // 无守护进程也无主程序：直接退出
-                Close();
+                PostQuitMessage(0);
             }
         }
 
-        private bool IsMainRunning()
+        // ===== 工具 =====
+        private static string GetCurrentBranch()
+        {
+            try
+            {
+                if (!File.Exists(ConfigFile)) return "";
+                string text = File.ReadAllText(ConfigFile);
+                var m = System.Text.RegularExpressions.Regex.Match(text, "\"branch\"\\s*:\\s*\"([^\"]+)\"");
+                return m.Success ? m.Groups[1].Value : "";
+            }
+            catch { return ""; }
+        }
+
+        private static string GetBranchDisplay(string branch)
+        {
+            switch (branch)
+            {
+                case "LTS": return "长期支持版";
+                case "main": return "正式版";
+                case "test": return "尝鲜版";
+                default: return branch;
+            }
+        }
+
+        private static void ParseArgs(string[] args)
+        {
+            string branches = "";
+            string hotkey = "";
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == "--main-exe" && i + 1 < args.Length) _mainExe = args[i + 1];
+                if (args[i] == "--main-args" && i + 1 < args.Length) _mainArgs = ParseJsonArray(args[i + 1]);
+                if (args[i] == "--storage" && i + 1 < args.Length) _storageDir = args[i + 1];
+                if (args[i] == "--branches" && i + 1 < args.Length) branches = args[i + 1];
+                if (args[i] == "--hotkey" && i + 1 < args.Length) hotkey = args[i + 1];
+                if (args[i] == "--tray-only") _trayOnly = true;
+            }
+            foreach (string b in branches.Split(new[] { ',', '，' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string t = b.Trim();
+                if (t.Length > 0) _branches.Add(t);
+            }
+            _logFile = string.IsNullOrEmpty(_storageDir) ? "" : Path.Combine(_storageDir, "helper.log");
+
+            if (!_trayOnly && !string.IsNullOrEmpty(hotkey))
+            {
+                uint mods = 0; uint vk = 0;
+                if (TryParseHotkey(hotkey, ref mods, ref vk))
+                {
+                    _hotkeyMods = mods;
+                    _hotkeyVk = vk;
+                }
+                else
+                {
+                    Log("热键无法解析: " + hotkey);
+                }
+            }
+
+            Log("启动: mainExe=" + _mainExe + " storage=" + _storageDir +
+                " branches=" + branches + " hotkey=" + hotkey);
+        }
+
+        private static string ParseArg(string key)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == key && i + 1 < args.Length) return args[i + 1];
+            }
+            return "";
+        }
+
+        private static bool IsMainRunning()
         {
             try
             {
@@ -290,7 +597,7 @@ namespace OuaHotkeyHelper
             catch { return false; }
         }
 
-        private int ReadDaemonPid()
+        private static int ReadDaemonPid()
         {
             try
             {
@@ -304,24 +611,23 @@ namespace OuaHotkeyHelper
             return 0;
         }
 
-        private bool IsProcessAlive(int pid)
+        private static bool IsProcessAlive(int pid)
         {
             try { Process.GetProcessById(pid); return true; }
             catch { return false; }
         }
 
-        private void Log(string msg)
+        private static void Log(string msg)
         {
             try
             {
-                if (string.IsNullOrEmpty(_storageDir)) return;
-                string path = Path.Combine(_storageDir, "helper.log");
-                File.AppendAllText(path, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " " + msg + "\r\n");
+                if (string.IsNullOrEmpty(_logFile)) return;
+                File.AppendAllText(_logFile,
+                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " " + msg + "\r\n");
             }
             catch { }
         }
 
-        /// <summary>解析 ["a","b"] 形式的 JSON 字符串数组（不引入依赖）</summary>
         private static string[] ParseJsonArray(string json)
         {
             var list = new List<string>();
@@ -356,7 +662,6 @@ namespace OuaHotkeyHelper
             return sb.ToString();
         }
 
-        /// <summary>解析 Electron 加速键格式，如 Ctrl+Shift+O / CommandOrControl+Alt+F8</summary>
         private static bool TryParseHotkey(string combo, ref uint mods, ref uint vk)
         {
             string[] parts = combo.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
@@ -369,7 +674,7 @@ namespace OuaHotkeyHelper
                     case "alt": mods |= MOD_ALT; break;
                     case "shift": mods |= MOD_SHIFT; break;
                     case "win": case "meta": case "super": case "cmd": case "command": mods |= MOD_WIN; break;
-                    case "commandorcontrol": mods |= MOD_CONTROL; break; // Windows 上 CommandOrControl = Ctrl
+                    case "commandorcontrol": mods |= MOD_CONTROL; break;
                 }
             }
             string key = parts[parts.Length - 1].Trim();
@@ -409,25 +714,6 @@ namespace OuaHotkeyHelper
                 case "period": vk = 0xBE; return true;
             }
             return false;
-        }
-    }
-
-    internal static class Program
-    {
-        [STAThread]
-        private static void Main(string[] args)
-        {
-            bool createdNew;
-            using (var mutex = new Mutex(true, "Global\\OUA_HotkeyHelper", out createdNew))
-            {
-                if (!createdNew) return; // 已有实例
-                Application.EnableVisualStyles();
-                Application.SetCompatibleTextRenderingDefault(false);
-                using (var app = new TrayApp(args))
-                {
-                    Application.Run(app);
-                }
-            }
         }
     }
 }
