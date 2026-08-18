@@ -557,6 +557,25 @@ function createTray() {
 }
 
 /**
+ * 启动时自动打开已下载的待安装更新包（用户点击「重启并更新」后触发）
+ */
+function autoOpenPendingUpdate() {
+  const pendingPath = configService.getPendingUpdatePath();
+  if (!pendingPath || !fs.existsSync(pendingPath)) return;
+  logger.info(`检测到待安装更新包，即将打开: ${pendingPath}`);
+  // 先关闭窗口再打开安装包，避免文件被锁定
+  isRestarting = true;
+  if (mainWindow) {
+    mainWindow.close();
+  }
+  setTimeout(() => {
+    shell.openPath(pendingPath).catch(err => {
+      logger.error(`打开安装包失败: ${err}`);
+    });
+  }, 500);
+}
+
+/**
  * 自动更新：启动时检查并自动下载安装更新
  */
 async function checkAndAutoUpdate() {
@@ -635,6 +654,9 @@ app.whenReady().then(() => {
 
   createWindow(silentMode);
   createTray();
+
+  // 检测并自动打开已下载的待安装更新包
+  autoOpenPendingUpdate();
 
   if (process.platform === 'darwin') {
     const dockMenu = Menu.buildFromTemplate([

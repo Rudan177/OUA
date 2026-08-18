@@ -1,7 +1,9 @@
 /**
  * 更新 IPC 通信
  */
-const { ipcMain, shell } = require('electron');
+const { ipcMain, shell, app } = require('electron');
+const path = require('path');
+const fs = require('fs');
 const updateService = require('../services/updateService');
 const versionService = require('../services/versionService');
 const selfUpdateService = require('../services/selfUpdateService');
@@ -34,7 +36,28 @@ function registerUpdateIPC() {
 
   ipcMain.handle('self-update-clear-pending', async () => {
     configService.setSelfUpdate(null);
+    configService.setPendingUpdatePath(null);
     return true;
+  });
+
+  ipcMain.handle('self-update-open-and-relaunch', async (event, filePath) => {
+    if (!filePath || typeof filePath !== 'string') {
+      return { ok: false, message: '无效的文件路径' };
+    }
+    if (!fs.existsSync(filePath)) {
+      return { ok: false, message: '安装包文件不存在' };
+    }
+    // 先清除待安装记录（避免反复弹出）
+    configService.setPendingUpdatePath(null);
+    logger.info(`即将重启并打开安装包: ${filePath}`);
+    // app.relaunch 会在当前事件循环结束后再启动新实例
+    app.relaunch();
+    // 等主进程开始退出后打开安装包
+    setTimeout(() => {
+      shell.openPath(filePath).catch(err => logger.error(`打开安装包失败: ${err}`));
+    }, 800);
+    app.exit(0);
+    return { ok: true };
   });
   ipcMain.handle('get-local-version', async (event, installDir) => {
     return versionService.getLocalVersion(installDir);

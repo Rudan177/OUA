@@ -239,6 +239,8 @@ async function downloadUpdate(progressCallback) {
   if (remote) {
     configService.setSelfUpdate({ version: remote, path: targetPath });
   }
+  // 记录待安装路径，供启动时自动打开使用
+  configService.setPendingUpdatePath(targetPath);
 
   return {
     path: targetPath,

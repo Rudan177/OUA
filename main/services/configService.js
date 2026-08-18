@@ -88,7 +88,8 @@ function getDefaultConfig() {
       allowExternal: false,
       token: null
     },
-    selfUpdate: null
+    selfUpdate: null,
+    pendingUpdate: null  // { path: string } 已下载待安装的更新包路径
   };
 }
 
@@ -254,6 +255,25 @@ function setSelfUpdate(selfUpdate) {
 }
 
 /**
+ * 获取待安装的更新包路径
+ * @returns {string|null} 文件路径或 null
+ */
+function getPendingUpdatePath() {
+  return configData && configData.pendingUpdate ? configData.pendingUpdate.path : null;
+}
+
+/**
+ * 保存待安装的更新包路径
+ * @param {string|null} filePath - 安装包路径，为 null 时清除
+ */
+function setPendingUpdatePath(filePath) {
+  configData = configData || getDefaultConfig();
+  configData.pendingUpdate = filePath ? { path: filePath } : null;
+  saveConfig();
+  logger.info(filePath ? `待安装更新包已记录: ${filePath}` : '待安装更新包已清除');
+}
+
+/**
  * 生成随机访问令牌
  * @returns {string} 32 位十六进制随机令牌
  */
@@ -326,6 +346,8 @@ module.exports = {
   getHotkeyConfig,
   getSelfUpdate,
   setSelfUpdate,
+  getPendingUpdatePath,
+  setPendingUpdatePath,
   getAccessibilityConfig,
   setAccessibilityConfig,
   regenerateAccessibilityToken

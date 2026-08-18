@@ -437,6 +437,7 @@
       check: function () { return invoke('self-update-check', []); },
       download: function () { return invoke('self-update-download', []); },
       openDownload: function (filePath) { return invoke('self-update-open', [filePath]); },
+      openAndRelaunch: function (filePath) { return invoke('self-update-open-and-relaunch', [filePath]); },
       clearPending: function () { return invoke('self-update-clear-pending', []); },
       onProgress: function (callback) { return subscribe('self-update-progress', callback); }
     }

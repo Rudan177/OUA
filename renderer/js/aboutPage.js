@@ -66,18 +66,15 @@
   }
 
   async function ShiYongDaiXiaZai() {
-    const ok = await DialogManager.QueRen('更新',
-      '将打开已下载的新版本文件，请按安装向导完成更新。', { QueRenWenBen: '打开' });
-    if (!ok) return;
-
+    if (!DaiXiaZaiLuJing) return;
     try {
-      const res = await window.electronAPI.selfUpdate.openDownload(DaiXiaZaiLuJing);
+      const res = await window.electronAPI.selfUpdate.openAndRelaunch(DaiXiaZaiLuJing);
       if (!res.ok) {
         await DialogManager.TiShi('更新失败', res.message || '无法打开新版本文件。');
         return;
       }
+      // 应用即将重启，清空状态
       DaiXiaZaiLuJing = null;
-      await window.electronAPI.selfUpdate.clearPending();
       XianShiYuanDian(false);
       SheZhiZhuangTai('-');
       SheZhiAnNiuWenZi('检查更新', false);
@@ -115,8 +112,8 @@
       if (result.pendingPath) {
         DaiXiaZaiLuJing = result.pendingPath;
         XianShiYuanDian(true);
-        SheZhiZhuangTai('新版本已下载');
-        SheZhiAnNiuWenZi('更新', false);
+        SheZhiZhuangTai('新版本已就绪');
+        SheZhiAnNiuWenZi('重启并更新', false);
         return;
       }
 
@@ -131,8 +128,9 @@
 
       await XiaZaiXinBan();
       if (DaiXiaZaiLuJing) {
-        await DialogManager.TiShi('下载完成',
-          `最新版本已下载到：\n${DaiXiaZaiLuJing}\n\n请点击「更新」打开该文件完成安装。`);
+        XianShiYuanDian(true);
+        SheZhiAnNiuWenZi('重启并更新', false);
+        SheZhiZhuangTai('新版本已就绪');
       }
     } catch (e) {
       SheZhiAnNiuWenZi('检查更新', false);
@@ -148,8 +146,8 @@
       if (result.pendingPath) {
         DaiXiaZaiLuJing = result.pendingPath;
         XianShiYuanDian(true);
-        SheZhiZhuangTai('新版本已下载');
-        SheZhiAnNiuWenZi('更新', false);
+        SheZhiZhuangTai('新版本已就绪');
+        SheZhiAnNiuWenZi('重启并更新', false);
         return;
       }
 
