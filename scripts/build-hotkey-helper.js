@@ -36,6 +36,7 @@ function main() {
     '/platform:x64',
     '/optimize+',
     '/win32manifest:' + manifestFile,
+    '/r:System.Web.Extensions.dll',
     '/out:' + exeFile,
     csFile
   ];

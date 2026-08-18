@@ -13,6 +13,8 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Web.Script.Serialization;
+using Microsoft.Win32;
 
 namespace OuaNativeTray
 {
@@ -62,6 +64,7 @@ namespace OuaNativeTray
         private const uint ID_SHOW = 1001;
         private const uint ID_BRANCH_BASE = 2000;
         private const uint ID_EXIT = 3001;
+        private const uint ID_TOGGLE_BASE = 4000; // 0=开机自启 1=最小化到托盘 2=轻量模式 3=热键启动 4=自动更新
 
         // ===== 结构 =====
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -211,6 +214,7 @@ namespace OuaNativeTray
         private static uint _hotkeyMods = 0;
         private static uint _hotkeyVk = 0;
         private static long _lastShowTime = 0; // 防抖：左键单击可能同时收到 WM_LBUTTONUP + NIN_SELECT
+        private static bool _quitDone = false; // 窗口模式退出：主程序 before-quit 会结束本进程，兜底判断避免重复动作
 
         private const int SM_CXSMICON = 11;
         private const int SM_CYSMICON = 12;
@@ -429,6 +433,23 @@ namespace OuaNativeTray
                     AppendMenu(menu, MF_STRING | MF_POPUP, branchMenu, "切换分支");
                 }
 
+                // 配置开关区（从 config.json 实时读取勾选状态）
+                var cfg = ReadConfig();
+                if (cfg != null)
+                {
+                    AppendMenu(menu, MF_SEPARATOR, IntPtr.Zero, null);
+                    AppendMenu(menu, MF_STRING | (GetStartupBool(cfg, "launchOnBoot") ? MF_CHECKED : 0),
+                        (IntPtr)(ID_TOGGLE_BASE + 0), "开机自启");
+                    AppendMenu(menu, MF_STRING | (GetStartupBool(cfg, "minimizeToTray") ? MF_CHECKED : 0),
+                        (IntPtr)(ID_TOGGLE_BASE + 1), "最小化到托盘");
+                    AppendMenu(menu, MF_STRING | (GetStartupBool(cfg, "lightweightMode") ? MF_CHECKED : 0),
+                        (IntPtr)(ID_TOGGLE_BASE + 2), "轻量模式");
+                    AppendMenu(menu, MF_STRING | (GetHotkeyEnabled(cfg) ? MF_CHECKED : 0),
+                        (IntPtr)(ID_TOGGLE_BASE + 3), "热键启动");
+                    AppendMenu(menu, MF_STRING | (GetStartupBool(cfg, "autoUpdate") ? MF_CHECKED : 0),
+                        (IntPtr)(ID_TOGGLE_BASE + 4), "自动更新");
+                }
+
                 AppendMenu(menu, MF_SEPARATOR, IntPtr.Zero, null);
                 AppendMenu(menu, MF_STRING, (IntPtr)ID_EXIT, "退出");
 
@@ -457,6 +478,10 @@ namespace OuaNativeTray
                     string branch = _branches[(int)(cmd - ID_BRANCH_BASE)];
                     Log("菜单: 切换分支 " + branch);
                     SwitchBranch(branch);
+                }
+                else if (cmd >= ID_TOGGLE_BASE && cmd < ID_TOGGLE_BASE + 5)
+                {
+                    ToggleConfig((int)(cmd - ID_TOGGLE_BASE));
                 }
                 else
                 {
@@ -531,12 +556,13 @@ namespace OuaNativeTray
             int daemonPid = ReadDaemonPid();
             if (daemonPid > 0 && IsProcessAlive(daemonPid))
             {
+                // 守护模式：结束守护进程，守护进程退出时其清理逻辑会一并结束本进程（子进程）
                 try
                 {
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = "taskkill",
-                        Arguments = "/PID " + daemonPid + " /F",
+                        Arguments = "/PID " + daemonPid + " /T /F", // /T 连带结束子进程（含本进程）
                         CreateNoWindow = true,
                         UseShellExecute = false
                     });
@@ -552,17 +578,193 @@ namespace OuaNativeTray
             }
             else if (IsMainRunning())
             {
+                // 窗口模式：通知主程序 --quit（由主程序 before-quit 清理 C# 助手）
+                Log("窗口模式退出：通知主程序 --quit");
                 LaunchMain("--quit");
+                // 主程序 before-quit 会结束本进程；兜底 5 秒后自行退出
                 Thread.Sleep(5000);
-                PostQuitMessage(0);
+                if (!_quitDone) PostQuitMessage(0);
             }
             else
             {
+                // 无守护进程也无主程序：直接退出
+                Log("直接退出");
                 PostQuitMessage(0);
             }
         }
 
         // ===== 工具 =====
+
+        // ===== 配置读写 =====
+        private static Dictionary<string, object> ReadConfig()
+        {
+            try
+            {
+                if (!File.Exists(ConfigFile)) return null;
+                string text = File.ReadAllText(ConfigFile);
+                var ser = new JavaScriptSerializer();
+                return ser.Deserialize<Dictionary<string, object>>(text);
+            }
+            catch { return null; }
+        }
+
+        private static void WriteConfig(Dictionary<string, object> cfg)
+        {
+            try
+            {
+                var ser = new JavaScriptSerializer();
+                string json = ser.Serialize(cfg);
+                // JavaScriptSerializer 不压缩；换行美化保持可读性
+                File.WriteAllText(ConfigFile, BeautifyJson(json), new UTF8Encoding(false));
+                Log("配置已保存到 " + ConfigFile);
+            }
+            catch (Exception ex)
+            {
+                Log("保存配置失败: " + ex.Message);
+            }
+        }
+
+        private static string BeautifyJson(string json)
+        {
+            int indent = 0;
+            var sb = new StringBuilder();
+            bool inStr = false;
+            foreach (char c in json)
+            {
+                if (c == '"') inStr = !inStr;
+                if (!inStr && (c == '{' || c == '['))
+                {
+                    sb.Append(c).Append("\r\n").Append(new string(' ', ++indent * 2));
+                }
+                else if (!inStr && (c == '}' || c == ']'))
+                {
+                    sb.Append("\r\n").Append(new string(' ', --indent * 2)).Append(c);
+                }
+                else if (!inStr && c == ',')
+                {
+                    sb.Append(c).Append("\r\n").Append(new string(' ', indent * 2));
+                }
+                else if (!inStr && c == ':')
+                {
+                    sb.Append(": ");
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString();
+        }
+
+        private static bool GetStartupBool(Dictionary<string, object> cfg, string key)
+        {
+            try
+            {
+                if (cfg == null || !cfg.ContainsKey("startup")) return false;
+                var startup = cfg["startup"] as Dictionary<string, object>;
+                if (startup == null || !startup.ContainsKey(key)) return false;
+                return startup[key] is bool && (bool)startup[key];
+            }
+            catch { return false; }
+        }
+
+        private static bool GetHotkeyEnabled(Dictionary<string, object> cfg)
+        {
+            try
+            {
+                if (cfg == null || !cfg.ContainsKey("hotkey")) return false;
+                var hotkey = cfg["hotkey"] as Dictionary<string, object>;
+                if (hotkey == null || !hotkey.ContainsKey("enabled")) return false;
+                return hotkey["enabled"] is bool && (bool)hotkey["enabled"];
+            }
+            catch { return false; }
+        }
+
+        /// <summary>设置开机自启（写注册表 Run 项；路径含空格加引号）</summary>
+        private static void SetRunAtStartup(string appName, string exePath, bool enable)
+        {
+            try
+            {
+                using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))
+                {
+                    if (key == null) return;
+                    if (enable)
+                    {
+                        string quoted = "\"" + exePath + "\"";
+                        key.SetValue(appName, quoted);
+                    }
+                    else
+                    {
+                        key.DeleteValue(appName, false);
+                    }
+                    Log("开机自启 => " + (enable ? "开启" : "关闭"));
+                }
+            }
+            catch (Exception ex)
+            {
+                Log("设置开机自启失败: " + ex.Message);
+            }
+        }
+
+        /// <summary>切换配置开关（index: 0=开机自启 1=最小化到托盘 2=轻量模式 3=热键启动 4=自动更新）</summary>
+        private static void ToggleConfig(int index)
+        {
+            try
+            {
+                var cfg = ReadConfig();
+                if (cfg == null)
+                {
+                    Log("读取配置失败，无法切换");
+                    return;
+                }
+                if (!cfg.ContainsKey("startup")) cfg["startup"] = new Dictionary<string, object>();
+                var startup = cfg["startup"] as Dictionary<string, object>;
+
+                string key = "";
+                string[] startupKeys = { "launchOnBoot", "minimizeToTray", "lightweightMode", null, "autoUpdate" };
+                switch (index)
+                {
+                    case 0: key = "launchOnBoot"; break;
+                    case 1: key = "minimizeToTray"; break;
+                    case 2: key = "lightweightMode"; break;
+                    case 3:
+                    {
+                        if (!cfg.ContainsKey("hotkey")) cfg["hotkey"] = new Dictionary<string, object>();
+                        var hotkey = cfg["hotkey"] as Dictionary<string, object>;
+                        bool old = hotkey.ContainsKey("enabled") && (bool)hotkey["enabled"];
+                        hotkey["enabled"] = !old;
+                        WriteConfig(cfg);
+                        Log("热键启动 => " + (!old ? "开启" : "关闭"));
+                        return;
+                    }
+                    case 4: key = "autoUpdate"; break;
+                    default: return;
+                }
+
+                bool current = startup.ContainsKey(key) && (bool)startup[key];
+                bool next = !current;
+                startup[key] = next;
+
+                // 开机自启直接写注册表（配置保存在主程序侧生效；此处同步保证立即生效）
+                if (index == 0 && !string.IsNullOrEmpty(_mainExe))
+                {
+                    SetRunAtStartup("OOOInterface易升", _mainExe, next);
+                }
+                // 轻量模式开启时自动启用最小化到托盘
+                if (index == 2 && next)
+                {
+                    startup["minimizeToTray"] = true;
+                }
+
+                WriteConfig(cfg);
+                Log("切换配置[" + index + "] " + key + " => " + next);
+            }
+            catch (Exception ex)
+            {
+                Log("切换配置异常: " + ex.Message);
+            }
+        }
+
         private static string GetCurrentBranch()
         {
             try
