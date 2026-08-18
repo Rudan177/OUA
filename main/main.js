@@ -186,10 +186,14 @@ function createWindow(silentMode = false) {
         // 轻量模式：主动销毁渲染进程释放内存，保留主进程和托盘
         event.preventDefault();
         if (mainWindow.webContents) {
-          mainWindow.webContents.destroy(); // 立即终止 Chromium 渲染进程
-          mainWindow.webContents.session.clearCache(); // 清理缓存，进一步释放内存
+          // 先异步清理 session 缓存（耗时操作，必须在 destroy 前完成）
+          mainWindow.webContents.session.clearCache().finally(() => {
+            mainWindow.webContents.dispose(); // 释放渲染进程资源
+            mainWindow.destroy();            // 销毁窗口
+          });
+        } else {
+          mainWindow.destroy();
         }
-        mainWindow.destroy();
       } else if (startupConfig.minimizeToTray) {
         event.preventDefault();
         mainWindow.hide();
