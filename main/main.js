@@ -485,7 +485,8 @@ function createWindow(silentMode = false) {
   });
 
   mainWindow.on('close', (event) => {
-    if (!isRestarting) {
+    // isQuitting=true（托盘「退出」/--quit）时放行关闭，走正常退出流程（before-quit 清理托盘助手）
+    if (!isRestarting && !isQuitting) {
       const startupConfig = configService.getStartupConfig();
       if (startupConfig.lightweightMode && process.platform === 'win32') {
         // 轻量模式：Electron 完全退出，由守护进程 + C# 托盘助手接管
