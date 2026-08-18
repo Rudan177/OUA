@@ -1197,6 +1197,14 @@
     });
   }
 
+  // 监听配置文件变更（托盘助手直接改写 config.json 后主进程广播）
+  // 重新加载启动配置与热键设置，刷新设置区开关状态
+  if (window.electronAPI && window.electronAPI.settings && window.electronAPI.settings.onConfigUpdated) {
+    window.electronAPI.settings.onConfigUpdated(async () => {
+      await Jiazaiqidongshezhi();
+    });
+  }
+
   window.UpdatePage = {
     JianChaGengXin,
     KaiShiShouCiAnZhuang,

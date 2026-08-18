@@ -280,6 +280,23 @@ async function main() {
   // 拉起托盘助手
   startHelper();
 
+  // 监听配置文件变更（托盘助手直接改写 config.json），重载内存配置
+  try {
+    const configPath = pathUtils.getConfigFilePath();
+    if (fs.existsSync(configPath)) {
+      fs.watchFile(configPath, { interval: 800 }, () => {
+        try {
+          configService.loadConfig();
+          logger.info('配置文件已变更，守护进程重载配置');
+        } catch (e) {
+          logger.warn(`守护进程配置重载失败: ${e.message}`);
+        }
+      });
+    }
+  } catch (error) {
+    logger.warn(`监听配置文件失败: ${error.message}`);
+  }
+
   // 自动更新检查
   const startupConfig = configService.getStartupConfig();
   if (startupConfig.autoUpdate) {

@@ -152,6 +152,40 @@ function qingLiFenZhiJinDu() {
 }
 
 /**
+ * 监听配置文件变更（托盘助手等外部进程可能直接改写 config.json）
+ * 变更时重载内存配置并广播 config-updated 给渲染进程刷新设置 UI
+ */
+function jianTingPeiZhiBianGeng() {
+  try {
+    const configPath = pathUtils.getConfigFilePath();
+    if (!fs.existsSync(configPath)) return;
+
+    let lastNotify = 0;
+    fs.watchFile(configPath, { interval: 800 }, (curr, prev) => {
+      // 防抖：避免连续写入时重复触发
+      const now = Date.now();
+      if (now - lastNotify < 500) return;
+      lastNotify = now;
+
+      // 重载磁盘配置到内存（保持与托盘助手修改同步）
+      try {
+        configService.loadConfig();
+      } catch (e) {
+        logger.warn(`配置重载失败: ${e.message}`);
+      }
+
+      logger.info('配置文件已变更，重载并广播刷新');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('config-updated');
+      }
+    });
+    logger.info(`已监听配置文件变更: ${configPath}`);
+  } catch (error) {
+    logger.warn(`监听配置文件失败: ${error.message}`);
+  }
+}
+
+/**
  * 执行托盘「切换分支」操作（在窗口模式主进程内运行）
  * 写入进度文件，由渲染进程轮询展示；完成后触发窗口刷新
  */
@@ -1074,6 +1108,10 @@ app.whenReady().then(() => {
 
   // 清理托盘切换分支的进度残留文件（上次切换可能中断）
   qingLiFenZhiJinDu();
+
+  // 监听配置文件变更（托盘助手/其他进程可能直接改写 config.json），
+  // 变更时重载内存配置并广播给渲染进程刷新设置 UI
+  jianTingPeiZhiBianGeng();
 
   // 恢复可访问性 HTTP server（如果之前已启用）；重试以覆盖守护进程端口释放窗口
   const accessibilityConfig = configService.getAccessibilityConfig();
