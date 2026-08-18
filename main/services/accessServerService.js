@@ -644,6 +644,13 @@ function handleRequest(req, res) {
       res.end(JSON.stringify({ ok: true }));
       if (daemonCallbacks.onWake) {
         setTimeout(() => daemonCallbacks.onWake(), 100);
+      } else if (BrowserWindow) {
+        // Electron 窗口模式兜底：聚焦现有窗口
+        const win = BrowserWindow.getAllWindows()[0];
+        if (win) {
+          win.show();
+          win.focus();
+        }
       }
       return;
     }
@@ -652,6 +659,9 @@ function handleRequest(req, res) {
       res.end(JSON.stringify({ ok: true }));
       if (daemonCallbacks.onExit) {
         setTimeout(() => daemonCallbacks.onExit(), 100);
+      } else if (app) {
+        // Electron 窗口模式兜底：退出应用
+        setTimeout(() => app.quit(), 100);
       }
       return;
     }

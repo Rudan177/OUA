@@ -91,10 +91,30 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (event, argv) => {
+    // C# 托盘助手「退出」在窗口模式下拉起带 --quit 的实例，触发本进程正常退出
+    if (argv && argv.includes('--quit')) {
+      logger.info('收到 --quit 请求，退出应用');
+      isQuitting = true;
+      app.quit();
+      return;
+    }
+    // C# 托盘助手热键：带 --toggle 切换窗口显隐（与 Electron 原热键行为一致）
+    if (argv && argv.includes('--toggle')) {
+      if (mainWindow) {
+        if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+      return;
+    }
     // 当第二个实例尝试启动时，聚焦到第一个实例的窗口
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
       mainWindow.focus();
     }
   });
@@ -144,6 +164,94 @@ function getHelperIconPath() {
     return path.join(process.resourcesPath, 'icon.ico');
   }
   return path.join(__dirname, '..', 'renderer', 'assets', 'icons', 'icon.ico');
+}
+
+/**
+ * 获取 C# 托盘助手在两种模式下的启动参数（守护模式/窗口模式共用）
+ */
+function getTuoPanZhuShouArgs() {
+  const helperIcon = getHelperIconPath();
+  const hotkeyConfig = configService.getHotkeyConfig();
+  // 开发模式拉起主程序需带上项目目录参数（打包后 exe 直接启动）
+  const mainArgs = app.isPackaged ? [] : [pathUtils.getAppRoot()];
+  const args = [
+    '--main-exe', process.execPath,
+    '--main-args', JSON.stringify(mainArgs),
+    '--storage', pathUtils.getStorageDir(),
+    '--hotkey', hotkeyConfig.enabled ? (hotkeyConfig.openWindow || 'Ctrl+Shift+O') : 'disabled'
+  ];
+  if (helperIcon && fs.existsSync(helperIcon)) {
+    args.push('--icon', helperIcon);
+  }
+  return args;
+}
+
+/**
+ * 窗口模式下拉起 C# 托盘助手（轻量模式统一使用，与守护模式样式一致）
+ * 若已在运行（守护模式残留的常驻实例）则不重复拉起
+ */
+function qidongTuoPanZhuShou() {
+  if (process.platform !== 'win32') return;
+  const helperExe = getHelperExePath();
+  if (!helperExe || !fs.existsSync(helperExe)) {
+    logger.warn(`托盘助手不存在: ${helperExe}`);
+    return;
+  }
+  // 已在运行则跳过（守护模式的常驻实例接管窗口模式托盘）
+  const helperPidFile = path.join(pathUtils.getStorageDir(), 'helper.pid');
+  try {
+    if (fs.existsSync(helperPidFile)) {
+      const pid = parseInt(fs.readFileSync(helperPidFile, 'utf8'), 10);
+      if (pid) {
+        try {
+          process.kill(pid, 0);
+          logger.info('托盘助手已在运行，跳过拉起');
+          return;
+        } catch (e) { /* 进程不存在，重新拉起 */ }
+      }
+      try { fs.unlinkSync(helperPidFile); } catch (_) {}
+    }
+  } catch (e) { /* ignore */ }
+
+  try {
+    const child = spawn(helperExe, getTuoPanZhuShouArgs(), {
+      windowsHide: true,
+      detached: true,
+      stdio: 'ignore'
+    });
+    child.unref();
+    setTimeout(() => {
+      if (child.pid) {
+        try {
+          fs.writeFileSync(helperPidFile, String(child.pid), 'utf8');
+        } catch (e) { /* ignore */ }
+      }
+    }, 300);
+    logger.info(`托盘助手已拉起(窗口模式): ${helperExe}`);
+  } catch (error) {
+    logger.warn(`拉起托盘助手失败: ${error.message}`);
+  }
+}
+
+/**
+ * 停止 C# 托盘助手（按 helper.pid 精确结束，兜底按名称）
+ */
+function tingZhiTuoPanZhuShou() {
+  if (process.platform !== 'win32') return;
+  try {
+    const helperPidFile = path.join(pathUtils.getStorageDir(), 'helper.pid');
+    if (fs.existsSync(helperPidFile)) {
+      const pid = parseInt(fs.readFileSync(helperPidFile, 'utf8'), 10);
+      if (pid) {
+        try { process.kill(pid); } catch (e) { /* 已退出 */ }
+      }
+      try { fs.unlinkSync(helperPidFile); } catch (_) {}
+    }
+  } catch (e) { /* ignore */ }
+  const helperExe = getHelperExePath();
+  if (helperExe) {
+    execFile('taskkill', ['/IM', path.basename(helperExe), '/F'], { windowsHide: true }, () => {});
+  }
 }
 
 /**
@@ -198,6 +306,22 @@ function qidongShouHuJinCheng() {
 function qingLiShouHuJinCheng() {
   if (process.platform !== 'win32') return;
   try {
+    // 清理残留的 C# 托盘助手（窗口模式接管后不再需要的实例）
+    try {
+      const helperPidFile = path.join(pathUtils.getStorageDir(), 'helper.pid');
+      if (fs.existsSync(helperPidFile)) {
+        const helperPid = parseInt(fs.readFileSync(helperPidFile, 'utf8'), 10);
+        if (helperPid) {
+          try {
+            process.kill(helperPid, 0);
+            execFile('taskkill', ['/PID', String(helperPid), '/F'], { windowsHide: true }, () => {});
+            logger.info(`已结束残留托盘助手: ${helperPid}`);
+          } catch (e) { /* 进程不存在 */ }
+        }
+        try { fs.unlinkSync(helperPidFile); } catch (_) {}
+      }
+    } catch (e) { /* ignore */ }
+
     const pidFile = path.join(pathUtils.getStorageDir(), 'daemon.pid');
     if (!fs.existsSync(pidFile)) return;
     const oldPid = parseInt(fs.readFileSync(pidFile, 'utf8'), 10);
@@ -903,7 +1027,14 @@ app.whenReady().then(() => {
   }
 
   createWindow(silentMode);
-  createTray();
+
+  // 轻量模式（win32）：统一使用 C# 托盘助手（窗口模式与守护模式样式一致），不再创建 Electron 托盘
+  const lightweightEnabled = startupConfig.lightweightMode && process.platform === 'win32';
+  if (lightweightEnabled) {
+    qidongTuoPanZhuShou();
+  } else {
+    createTray();
+  }
 
   // 检测并自动打开已下载的待安装更新包
   autoOpenPendingUpdate();
@@ -923,8 +1054,10 @@ app.whenReady().then(() => {
     app.dock.setMenu(dockMenu);
   }
 
-  // 注册全局热键（打开窗口）
-  zhuCeQuanJuReJian();
+  // 注册全局热键（打开窗口）。轻量模式（win32）热键由 C# 托盘助手持有，不重复注册避免冲突
+  if (!lightweightEnabled) {
+    zhuCeQuanJuReJian();
+  }
 
   // 自动更新检查
   if (startupConfig.autoUpdate) {
@@ -961,6 +1094,8 @@ app.on('before-quit', () => {
   isQuitting = true;
   zhuXiaoQuanJuReJian();
   httpServerService.guanBi();
+  // 窗口模式退出：结束 C# 托盘助手（守护模式退出时助手已被守护进程接管/清理）
+  tingZhiTuoPanZhuShou();
   logger.info('应用退出');
 });
 

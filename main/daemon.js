@@ -27,6 +27,7 @@ let versionService = null;
 let updateService = null;
 
 const PID_FILE = () => path.join(pathUtils.getStorageDir(), 'daemon.pid');
+const HELPER_PID_FILE = () => path.join(pathUtils.getStorageDir(), 'helper.pid');
 const MAIN_EXE = process.env.OUA_MAIN_EXE || '';
 const MAIN_ARGS = process.env.OUA_MAIN_ARGS ? JSON.parse(process.env.OUA_MAIN_ARGS) : [];
 const HELPER_EXE = process.env.OUA_HELPER_EXE || '';
@@ -78,18 +79,40 @@ function cleanupStaleDaemon() {
 }
 
 /**
+ * 检查 C# 托盘助手是否已在运行（读 helper.pid 并验证进程存活）
+ * @returns {boolean}
+ */
+function isHelperRunning() {
+  try {
+    if (!fs.existsSync(HELPER_PID_FILE())) return false;
+    const pid = parseInt(fs.readFileSync(HELPER_PID_FILE(), 'utf8'), 10);
+    if (!pid) return false;
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
  * 拉起 C# 托盘助手（托盘图标 + 全局热键）
+ * 独立常驻（detached），不随守护进程退出；写 helper.pid 供主进程/守护进程共享管理。
  */
 function startHelper() {
   if (!HELPER_EXE || !fs.existsSync(HELPER_EXE)) {
     logger.warn(`托盘助手不存在: ${HELPER_EXE}`);
     return;
   }
-  const accessibilityConfig = configService.getAccessibilityConfig();
+  if (isHelperRunning()) {
+    logger.info('托盘助手已在运行，跳过拉起');
+    return;
+  }
   const hotkeyConfig = configService.getHotkeyConfig();
 
   const args = [
-    '--port', String(accessibilityConfig.port || 8964),
+    '--main-exe', MAIN_EXE,
+    '--main-args', JSON.stringify(MAIN_ARGS),
+    '--storage', pathUtils.getStorageDir(),
     '--hotkey', hotkeyConfig.enabled ? (hotkeyConfig.openWindow || 'Ctrl+Shift+O') : 'disabled'
   ];
   if (HELPER_ICON && fs.existsSync(HELPER_ICON)) {
@@ -97,8 +120,17 @@ function startHelper() {
   }
 
   try {
-    helperProcess = spawn(HELPER_EXE, args, { windowsHide: true, detached: false, stdio: 'ignore' });
+    helperProcess = spawn(HELPER_EXE, args, { windowsHide: true, detached: true, stdio: 'ignore' });
+    helperProcess.unref();
     helperProcess.on('error', (err) => logger.warn(`托盘助手启动失败: ${err.message}`));
+    // 写 helper.pid（等进程真正创建）
+    setTimeout(() => {
+      if (helperProcess && helperProcess.pid) {
+        try {
+          fs.writeFileSync(HELPER_PID_FILE(), String(helperProcess.pid), 'utf8');
+        } catch (e) { logger.warn(`写入 helper.pid 失败: ${e.message}`); }
+      }
+    }, 300);
     logger.info(`托盘助手已启动: ${HELPER_EXE} ${args.join(' ')}`);
   } catch (error) {
     logger.warn(`托盘助手启动异常: ${error.message}`);
@@ -106,26 +138,34 @@ function startHelper() {
 }
 
 /**
- * 结束 C# 托盘助手
+ * 结束 C# 托盘助手（读 helper.pid 精确结束；兜底 taskkill 按进程名）
  */
 function stopHelper() {
-  if (helperProcess && !helperProcess.killed) {
-    try {
-      helperProcess.kill();
-    } catch (e) { /* ignore */ }
-    helperProcess = null;
+  try {
+    if (fs.existsSync(HELPER_PID_FILE())) {
+      const pid = parseInt(fs.readFileSync(HELPER_PID_FILE(), 'utf8'), 10);
+      if (pid) {
+        try { process.kill(pid); } catch (e) { /* 进程已退出 */ }
+        fs.unlinkSync(HELPER_PID_FILE());
+      }
+    }
+  } catch (e) { /* ignore */ }
+  // 兜底：按名称结束（防止 PID 文件缺失但有残留实例）
+  if (HELPER_EXE) {
+    const name = path.basename(HELPER_EXE);
+    execFile('taskkill', ['/IM', name, '/F'], { windowsHide: true }, () => {});
   }
 }
 
 /**
  * 唤醒：停止 HTTP → 重新拉起主程序 → 退出守护进程
+ * 注意：不结束 C# 托盘助手（常驻，由主程序接管托盘响应）
  */
 function wake() {
   if (isShuttingDown) return;
   isShuttingDown = true;
   logger.info('收到唤醒请求，启动主程序...');
 
-  stopHelper();
   httpServerService.guanBi().then(() => {
     try {
       spawn(MAIN_EXE, MAIN_ARGS, { detached: true, stdio: 'ignore', windowsHide: true }).unref();
