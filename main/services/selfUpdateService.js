@@ -125,7 +125,24 @@ async function getDownloadLinks() {
 }
 
 /**
- * 为当前系统挑选下载项（优先免安装版，其次安装版）
+ * 检测当前 OUA 的运行类型（免安装 / 安装）
+ * Windows: Program Files 下为安装版，否则为免安装版
+ * Linux: .AppImage 或 /tmp/.mount_ 为免安装版，否则为安装版
+ * @returns {'portable'|'installed'}
+ */
+function getCurrentInstallType() {
+  const exePath = process.execPath;
+  if (process.platform === 'win32') {
+    return exePath.includes('Program Files') ? 'installed' : 'portable';
+  }
+  if (process.platform === 'linux') {
+    return exePath.endsWith('.AppImage') || exePath.startsWith('/tmp/.mount_') ? 'portable' : 'installed';
+  }
+  return 'portable';
+}
+
+/**
+ * 为当前系统挑选下载项（跟随当前运行类型的 OUA）
  * @param {Array} links - 下载链接列表
  * @returns {{system: string, type: string, portable: boolean, url: string}|null}
  */
@@ -136,7 +153,12 @@ function pickDownloadForOS(links) {
   const candidates = links.filter(link => link.system.toLowerCase() === osKey.toLowerCase());
   if (candidates.length === 0) return null;
 
-  return candidates.find(link => link.portable) || candidates[0];
+  const currentType = getCurrentInstallType();
+  const matching = candidates.find(link =>
+    (currentType === 'portable' && link.portable) ||
+    (currentType === 'installed' && !link.portable)
+  );
+  return matching || candidates[0];
 }
 
 /**
@@ -181,6 +203,7 @@ async function checkUpdate() {
     remote,
     updateAvailable,
     os: osName,
+    installType: getCurrentInstallType(),
     download: download || null,
     pendingPath
   };
@@ -231,6 +254,7 @@ module.exports = {
   getLocalVersion,
   getRemoteVersion,
   getDownloadLinks,
+  getCurrentInstallType,
   pickDownloadForOS,
   checkUpdate,
   downloadUpdate
