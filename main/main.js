@@ -176,6 +176,7 @@ function createWindow(silentMode = false) {
   });
 
   mainWindow.on('closed', () => {
+    logger.info('轻量模式：窗口已关闭事件触发');
     mainWindow = null;
   });
 
@@ -185,7 +186,9 @@ function createWindow(silentMode = false) {
       if (startupConfig.lightweightMode) {
         // 轻量模式：销毁窗口释放 Chromium 渲染进程内存，保留主进程和托盘
         event.preventDefault();
+        logger.info('轻量模式：destroy前内存RSS=' + Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB，窗口数=' + BrowserWindow.getAllWindows().length);
         mainWindow.destroy();
+        logger.info('轻量模式：destroy后内存RSS=' + Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB，窗口数=' + BrowserWindow.getAllWindows().length);
       } else if (startupConfig.minimizeToTray) {
         event.preventDefault();
         mainWindow.hide();
@@ -802,6 +805,7 @@ app.on('window-all-closed', () => {
   // 轻量模式：窗口全部关闭后保留进程，托盘图标仍可用
   const startupConfig = configService.getStartupConfig();
   if (startupConfig.lightweightMode) {
+    logger.info('轻量模式：window-all-closed 触发，保留进程');
     return;
   }
   if (process.platform !== 'darwin') {
