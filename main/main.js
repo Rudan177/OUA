@@ -183,9 +183,9 @@ function createWindow(silentMode = false) {
     if (!isQuitting && !isRestarting) {
       const startupConfig = configService.getStartupConfig();
       if (startupConfig.lightweightMode) {
-        // 轻量模式：关闭窗口即退出，保留托盘图标供用户手动退出
-        isQuitting = true;
-        app.quit();
+        // 轻量模式：销毁窗口释放 Chromium 渲染进程内存，保留主进程和托盘
+        event.preventDefault();
+        mainWindow.destroy();
       } else if (startupConfig.minimizeToTray) {
         event.preventDefault();
         mainWindow.hide();
@@ -552,8 +552,8 @@ function createTray() {
 
   // 轻量模式：根据窗口当前可见性初始化菜单
   let contextMenu;
-  if (lightweightMode && mainWindow) {
-    const items = mainWindow.isVisible()
+  if (lightweightMode) {
+    const items = mainWindow && mainWindow.isVisible()
       ? [
           { label: '隐藏窗口', click: () => mainWindow.hide() },
           { type: 'separator' },
@@ -570,35 +570,38 @@ function createTray() {
   tray.setContextMenu(contextMenu);
 
   // 轻量模式：监听窗口显示状态变化，同步更新托盘菜单
-  if (lightweightMode && mainWindow) {
-    mainWindow.on('show', () => {
+  if (lightweightMode) {
+    mainWindow && mainWindow.on('show', () => {
       updateTrayMenu();
     });
-    mainWindow.on('hide', () => {
+    mainWindow && mainWindow.on('hide', () => {
       updateTrayMenu();
     });
-    // 初始化时根据窗口当前可见性设置正确的菜单
+    mainWindow && mainWindow.on('closed', () => {
+      updateTrayMenu();
+    });
     updateTrayMenu();
   }
 
   if (process.platform !== 'darwin') {
     tray.on('double-click', () => {
-      if (mainWindow) {
-        if (lightweightMode) {
-          // 轻量模式：双击托盘仅在窗口隐藏时显示窗口
-          if (mainWindow.isVisible()) {
-            mainWindow.hide();
-          } else {
-            mainWindow.show();
-            mainWindow.focus();
-          }
+      if (lightweightMode) {
+        if (mainWindow && mainWindow.isVisible()) {
+          mainWindow.hide();
         } else {
-          if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
-            mainWindow.hide();
-          } else {
+          if (mainWindow) {
             mainWindow.show();
             mainWindow.focus();
+          } else {
+            createWindow(false);
           }
+        }
+      } else if (mainWindow) {
+        if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
         }
       }
     });
@@ -608,15 +611,24 @@ function createTray() {
    * 轻量模式专用：根据窗口可见性动态更新托盘菜单
    */
   function updateTrayMenu() {
-    if (!mainWindow || !lightweightMode) return;
-    const items = mainWindow.isVisible()
+    if (!lightweightMode) return;
+    const hasWindow = mainWindow !== null;
+    const isVisible = hasWindow && mainWindow.isVisible();
+    const items = isVisible
       ? [
           { label: '隐藏窗口', click: () => mainWindow.hide() },
           { type: 'separator' },
           { label: '退出', click: () => { isQuitting = true; app.quit(); } }
         ]
       : [
-          { label: '显示窗口', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
+          { label: hasWindow ? '显示窗口' : '显示窗口', click: () => {
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.focus();
+            } else {
+              createWindow(false);
+            }
+          }},
           { type: 'separator' },
           { label: '退出', click: () => { isQuitting = true; app.quit(); } }
         ];
