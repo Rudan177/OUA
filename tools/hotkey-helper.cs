@@ -3,7 +3,7 @@
 //   - 托盘: Shell_NotifyIcon (NOTIFYICON_VERSION_4)，启动时先 NIM_DELETE 清残留图标再 NIM_ADD
 //   - 菜单: CreatePopupMenu + TrackPopupMenu（系统原生渲染，跟随深浅色主题）
 //   - 热键: RegisterHotKey + WndProc (WM_HOTKEY)
-//   - 显示窗口: 启动主程序 exe (Electron 单实例锁聚焦)；切换分支: --switch-branch
+//   - 显示窗口: 启动主程序 exe (Electron 单实例锁聚焦)
 //   - 诊断: 关键动作 + 收到的托盘/鼠标消息写入 <storage>/helper.log
 // 编译: csc /target:winexe /platform:x64 /optimize+ /win32manifest:app.manifest /out:hotkey-helper.exe hotkey-helper.cs
 using System;
@@ -62,7 +62,6 @@ namespace OuaNativeTray
 
         // 菜单项 ID
         private const uint ID_SHOW = 1001;
-        private const uint ID_BRANCH_BASE = 2000;
         private const uint ID_EXIT = 3001;
         private const uint ID_TOGGLE_BASE = 4000; // 0=开机自启 1=最小化到托盘 2=轻量模式 3=热键启动 4=自动更新
 
@@ -209,7 +208,6 @@ namespace OuaNativeTray
         private static string[] _mainArgs = new string[0];
         private static string _storageDir = "";
         private static string _logFile = "";
-        private static List<string> _branches = new List<string>();
         private static bool _trayOnly = false;
         private static uint _hotkeyMods = 0;
         private static uint _hotkeyVk = 0;
@@ -420,19 +418,6 @@ namespace OuaNativeTray
 
                 AppendMenu(menu, MF_STRING, (IntPtr)ID_SHOW, "显示窗口");
 
-                if (_branches.Count > 0)
-                {
-                    string current = GetCurrentBranch();
-                    IntPtr branchMenu = CreatePopupMenu();
-                    for (int i = 0; i < _branches.Count; i++)
-                    {
-                        uint flags = MF_STRING;
-                        if (_branches[i] == current) flags |= MF_CHECKED;
-                        AppendMenu(branchMenu, flags, (IntPtr)(ID_BRANCH_BASE + (uint)i), GetBranchDisplay(_branches[i]));
-                    }
-                    AppendMenu(menu, MF_STRING | MF_POPUP, branchMenu, "切换分支");
-                }
-
                 // 配置开关区（从 config.json 实时读取勾选状态）
                 var cfg = ReadConfig();
                 if (cfg != null)
@@ -473,12 +458,6 @@ namespace OuaNativeTray
                     Log("菜单: 退出");
                     ExitApp();
                 }
-                else if (cmd >= ID_BRANCH_BASE && cmd < ID_BRANCH_BASE + (uint)_branches.Count)
-                {
-                    string branch = _branches[(int)(cmd - ID_BRANCH_BASE)];
-                    Log("菜单: 切换分支 " + branch);
-                    SwitchBranch(branch);
-                }
                 else if (cmd >= ID_TOGGLE_BASE && cmd < ID_TOGGLE_BASE + 5)
                 {
                     ToggleConfig((int)(cmd - ID_TOGGLE_BASE));
@@ -512,11 +491,6 @@ namespace OuaNativeTray
         private static void ToggleMainWindow()
         {
             LaunchMain("--toggle");
-        }
-
-        private static void SwitchBranch(string branch)
-        {
-            LaunchMain("--switch-branch", branch);
         }
 
         private static void LaunchMain(params string[] extraArgs)
@@ -765,46 +739,16 @@ namespace OuaNativeTray
             }
         }
 
-        private static string GetCurrentBranch()
-        {
-            try
-            {
-                if (!File.Exists(ConfigFile)) return "";
-                string text = File.ReadAllText(ConfigFile);
-                var m = System.Text.RegularExpressions.Regex.Match(text, "\"branch\"\\s*:\\s*\"([^\"]+)\"");
-                return m.Success ? m.Groups[1].Value : "";
-            }
-            catch { return ""; }
-        }
-
-        private static string GetBranchDisplay(string branch)
-        {
-            switch (branch)
-            {
-                case "LTS": return "长期支持版";
-                case "main": return "正式版";
-                case "test": return "尝鲜版";
-                default: return branch;
-            }
-        }
-
         private static void ParseArgs(string[] args)
         {
-            string branches = "";
             string hotkey = "";
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "--main-exe" && i + 1 < args.Length) _mainExe = args[i + 1];
                 if (args[i] == "--main-args" && i + 1 < args.Length) _mainArgs = ParseJsonArray(args[i + 1]);
                 if (args[i] == "--storage" && i + 1 < args.Length) _storageDir = args[i + 1];
-                if (args[i] == "--branches" && i + 1 < args.Length) branches = args[i + 1];
                 if (args[i] == "--hotkey" && i + 1 < args.Length) hotkey = args[i + 1];
                 if (args[i] == "--tray-only") _trayOnly = true;
-            }
-            foreach (string b in branches.Split(new[] { ',', '，' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                string t = b.Trim();
-                if (t.Length > 0) _branches.Add(t);
             }
             _logFile = string.IsNullOrEmpty(_storageDir) ? "" : Path.Combine(_storageDir, "helper.log");
 
@@ -822,8 +766,7 @@ namespace OuaNativeTray
                 }
             }
 
-            Log("启动: mainExe=" + _mainExe + " storage=" + _storageDir +
-                " branches=" + branches + " hotkey=" + hotkey);
+            Log("启动: mainExe=" + _mainExe + " storage=" + _storageDir + " hotkey=" + hotkey);
         }
 
         private static string ParseArg(string key)

@@ -283,17 +283,10 @@ function getTuoPanZhuShouArgs() {
   const hotkeyConfig = configService.getHotkeyConfig();
   // 开发模式拉起主程序需带上项目目录参数（打包后 exe 直接启动）
   const mainArgs = app.isPackaged ? [] : [pathUtils.getAppRoot()];
-  const appConfigModule = require('./config/appConfig');
-  const branches = [
-    appConfigModule.git.ltsBranch,
-    appConfigModule.git.mainBranch,
-    appConfigModule.git.testBranch
-  ].filter(Boolean);
   const args = [
     '--main-exe', process.execPath,
     '--main-args', JSON.stringify(mainArgs),
     '--storage', pathUtils.getStorageDir(),
-    '--branches', branches.join(','),
     '--hotkey', hotkeyConfig.enabled ? (hotkeyConfig.openWindow || 'Ctrl+Shift+O') : 'disabled'
   ];
   if (helperIcon && fs.existsSync(helperIcon)) {
@@ -708,21 +701,7 @@ ipcMain.handle('get-startup-config', async () => {
 
 ipcMain.handle('set-startup-config', async (event, startupConfig) => {
   configService.setStartupConfig(startupConfig);
-  if (startupConfig.launchOnBoot) {
-    // 当同时开启最小化托盘时，传 --silent 参数实现静默启动
-    const args = startupConfig.minimizeToTray ? ['--silent'] : [];
-    app.setLoginItemSettings({
-      openAtLogin: true,
-      openAsHidden: false,
-      path: process.execPath,
-      args: args
-    });
-  } else {
-    app.setLoginItemSettings({
-      openAtLogin: false,
-      path: process.execPath
-    });
-  }
+  yingYongKaiJiZiQi(startupConfig);
   return true;
 });
 
@@ -890,49 +869,8 @@ function createTray() {
   const startupConfig = configService.getStartupConfig();
   const lightweightMode = startupConfig.lightweightMode;
 
-  // 轻量模式：窗口关闭后仅显示退出选项；否则显示显示窗口 + 退出
-  const menuItems = lightweightMode
-    ? [{ label: '退出', click: () => { isQuitting = true; app.quit(); } }]
-    : [
-        {
-          label: '显示窗口',
-          click: () => {
-            if (mainWindow) {
-              mainWindow.show();
-              mainWindow.focus();
-            }
-          }
-        },
-        { type: 'separator' },
-        {
-          label: '退出',
-          click: () => {
-            isQuitting = true;
-            app.quit();
-          }
-        }
-      ];
-
-  // 轻量模式：根据窗口当前可见性初始化菜单
-  let contextMenu;
-  if (lightweightMode) {
-    const hasWindow = mainWindow !== null;
-    const isVisible = hasWindow && mainWindow.isVisible();
-    const items = isVisible
-      ? [
-          { label: '隐藏窗口', click: () => mainWindow.hide() },
-          { type: 'separator' },
-          { label: '退出', click: () => { isQuitting = true; app.quit(); } }
-        ]
-      : [
-          { label: '显示窗口', click: () => createWindow(false) },
-          { type: 'separator' },
-          { label: '退出', click: () => { isQuitting = true; app.quit(); } }
-        ];
-    contextMenu = Menu.buildFromTemplate(items);
-  } else {
-    contextMenu = Menu.buildFromTemplate(menuItems);
-  }
+  // 构建托盘菜单（含配置开关区；非轻量模式共用）
+  const contextMenu = buildTrayContextMenu(lightweightMode);
   tray.setToolTip('OOOInterface Update Assistant');
   tray.setContextMenu(contextMenu);
 
@@ -1014,6 +952,147 @@ function createTray() {
     ];
     tray.setContextMenu(Menu.buildFromTemplate(items));
   }
+}
+
+/**
+ * 应用开机自启设置
+ * Windows/macOS 用 Electron setLoginItemSettings；Linux 会生成 ~/.config/autostart 的 .desktop 项
+ */
+function yingYongKaiJiZiQi(startupConfig) {
+  if (startupConfig.launchOnBoot) {
+    // 当同时开启最小化托盘时，传 --silent 参数实现静默启动（Windows）
+    const args = process.platform === 'win32' && startupConfig.minimizeToTray ? ['--silent'] : [];
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      openAsHidden: false,
+      path: process.execPath,
+      args: args
+    });
+  } else {
+    app.setLoginItemSettings({
+      openAtLogin: false,
+      path: process.execPath
+    });
+  }
+}
+
+/**
+ * 切换 Electron 托盘菜单中的配置开关
+ * @param {'launchOnBoot'|'minimizeToTray'|'lightweightMode'|'autoUpdate'|'hotkey'} field
+ */
+function qieHuanTuoPanKaiGuan(field) {
+  if (field === 'hotkey') {
+    const hotkeyConfig = configService.getHotkeyConfig();
+    hotkeyConfig.enabled = !hotkeyConfig.enabled;
+    configService.setHotkeyConfig(hotkeyConfig);
+    if (hotkeyConfig.enabled) {
+      zhuCeQuanJuReJian();
+    } else {
+      zhuXiaoQuanJuReJian();
+    }
+  } else {
+    const startupConfig = configService.getStartupConfig();
+    startupConfig[field] = !startupConfig[field];
+    // 轻量模式开启时自动启用最小化到托盘（与主界面行为一致）
+    if (field === 'lightweightMode' && startupConfig[field]) {
+      startupConfig.minimizeToTray = true;
+    }
+    configService.setStartupConfig(startupConfig);
+    yingYongKaiJiZiQi(startupConfig);
+  }
+  logger.info(`托盘切换配置: ${field}`);
+  // 重建托盘菜单并广播给渲染层刷新设置 UI
+  if (tray) {
+    tray.setContextMenu(buildTrayContextMenu(configService.getStartupConfig().lightweightMode));
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('config-updated');
+  }
+}
+
+/**
+ * 构建托盘菜单（轻量模式：窗口显隐+退出；否则：显示窗口+配置开关+退出）
+ */
+function buildTrayContextMenu(lightweightMode) {
+  if (lightweightMode) {
+    const hasWindow = mainWindow !== null;
+    const isVisible = hasWindow && mainWindow.isVisible();
+    return Menu.buildFromTemplate(
+      isVisible
+        ? [
+            { label: '隐藏窗口', click: () => mainWindow.hide() },
+            { type: 'separator' },
+            { label: '退出', click: () => { isQuitting = true; app.quit(); } }
+          ]
+        : [
+            { label: '显示窗口', click: () => createWindow(false) },
+            { type: 'separator' },
+            { label: '退出', click: () => { isQuitting = true; app.quit(); } }
+          ]
+    );
+  }
+
+  const startupConfig = configService.getStartupConfig();
+  const hotkeyConfig = configService.getHotkeyConfig();
+  // 轻量模式开关仅 Windows 展示（守护进程方案未在 Linux 启用）
+  const showLightweight = process.platform === 'win32';
+
+  const items = [
+    {
+      label: '显示窗口',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    { type: 'separator' }
+  ];
+
+  items.push({
+    label: '开机自启',
+    type: 'checkbox',
+    checked: !!startupConfig.launchOnBoot,
+    click: () => qieHuanTuoPanKaiGuan('launchOnBoot')
+  });
+  items.push({
+    label: '最小化到托盘',
+    type: 'checkbox',
+    checked: !!startupConfig.minimizeToTray,
+    click: () => qieHuanTuoPanKaiGuan('minimizeToTray')
+  });
+  if (showLightweight) {
+    items.push({
+      label: '轻量模式',
+      type: 'checkbox',
+      checked: !!startupConfig.lightweightMode,
+      click: () => qieHuanTuoPanKaiGuan('lightweightMode')
+    });
+  }
+  items.push({
+    label: '热键启动',
+    type: 'checkbox',
+    checked: !!(hotkeyConfig && hotkeyConfig.enabled),
+    click: () => qieHuanTuoPanKaiGuan('hotkey')
+  });
+  items.push({
+    label: '自动更新',
+    type: 'checkbox',
+    checked: !!startupConfig.autoUpdate,
+    click: () => qieHuanTuoPanKaiGuan('autoUpdate')
+  });
+
+  items.push({ type: 'separator' });
+  items.push({
+    label: '退出',
+    click: () => {
+      isQuitting = true;
+      app.quit();
+    }
+  });
+
+  return Menu.buildFromTemplate(items);
 }
 
 /**
