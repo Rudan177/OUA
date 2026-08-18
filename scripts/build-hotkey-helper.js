@@ -29,11 +29,13 @@ function main() {
     process.exit(1);
   }
 
+  const manifestFile = path.join(toolsDir, 'app.manifest');
   const args = [
     '/nologo',
     '/target:winexe',
     '/platform:x64',
     '/optimize+',
+    '/win32manifest:' + manifestFile,
     '/out:' + exeFile,
     csFile
   ];

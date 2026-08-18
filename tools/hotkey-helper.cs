@@ -1,12 +1,11 @@
 // OOAInterface易升 轻量模式托盘助手 —— 全 Win32 原生实现
-//   - 托盘: Shell_NotifyIcon (NIM_ADD + NOTIFYICON_VERSION_4)，回调消息收鼠标事件
-//   - 菜单: CreatePopupMenu + AppendMenu + TrackPopupMenu (系统原生 HMENU 渲染，跟随深浅色主题)
+//   - DPI 感知: 内嵌 PerMonitorV2 manifest + 运行时 SetProcessDpiAwarenessContext 双保险（避免缩放屏模糊/菜单错位）
+//   - 托盘: Shell_NotifyIcon (NOTIFYICON_VERSION_4)，启动时先 NIM_DELETE 清残留图标再 NIM_ADD
+//   - 菜单: CreatePopupMenu + TrackPopupMenu（系统原生渲染，跟随深浅色主题）
 //   - 热键: RegisterHotKey + WndProc (WM_HOTKEY)
-//   - 显示窗口: 启动主程序 exe (Electron 单实例锁聚焦)
-//   - 切换分支: 启动主程序 --switch-branch <分支>
-//   - 退出: 守护模式→结束守护进程并自杀; 窗口模式→通知主程序 --quit
-//   - 日志: <storage>/helper.log
-// 编译: csc /target:winexe /platform:x64 /optimize+ /out:hotkey-helper.exe hotkey-helper.cs
+//   - 显示窗口: 启动主程序 exe (Electron 单实例锁聚焦)；切换分支: --switch-branch
+//   - 诊断: 关键动作 + 收到的托盘/鼠标消息写入 <storage>/helper.log
+// 编译: csc /target:winexe /platform:x64 /optimize+ /win32manifest:app.manifest /out:hotkey-helper.exe hotkey-helper.cs
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -22,11 +21,10 @@ namespace OuaNativeTray
         // ===== Win32 常量 =====
         private const int WM_HOTKEY = 0x0312;
         private const int WM_DESTROY = 0x0002;
+        private const int WM_NULL = 0x0000;
         private const int WM_USER = 0x0400;
         private const int WM_LBUTTONUP = 0x0202;
-        private const int WM_LBUTTONDBLCLK = 0x0203;
         private const int WM_RBUTTONUP = 0x0205;
-        private const int WM_CONTEXTMENU = 0x007B;
 
         private const uint NIM_ADD = 0;
         private const uint NIM_DELETE = 2;
@@ -37,7 +35,7 @@ namespace OuaNativeTray
         private const uint NOTIFYICON_VERSION_4 = 4;
         private const uint NIN_SELECT = WM_USER + 1;
         private const uint NIN_DOUBLE = WM_USER + 3;
-        private const uint TRAY_MSG = WM_USER + 1;
+        private const uint TRAY_MSG = WM_USER + 200; // 远离 WM_USER+1(NIN_SELECT) 避免混淆
 
         private const uint MF_STRING = 0;
         private const uint MF_SEPARATOR = 0x800;
@@ -58,7 +56,7 @@ namespace OuaNativeTray
         private const uint IMAGE_ICON = 1;
         private const uint LR_LOADFROMFILE = 0x10;
         private const int WS_POPUP = unchecked((int)0x80000000);
-        private const uint CW_USEDEFAULT = 0x80000000;
+        private const int SW_HIDE = 0;
 
         // 菜单项 ID
         private const uint ID_SHOW = 1001;
@@ -137,6 +135,9 @@ namespace OuaNativeTray
         private static extern bool DestroyWindow(IntPtr hWnd);
 
         [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 
         [DllImport("user32.dll")]
@@ -147,6 +148,9 @@ namespace OuaNativeTray
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern IntPtr LoadImage(IntPtr hInst, string name, uint type, int cx, int cy, uint fuLoad);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr LoadIcon(IntPtr hInst, string lpIconName);
 
         [DllImport("user32.dll")]
         private static extern IntPtr CreatePopupMenu();
@@ -185,6 +189,12 @@ namespace OuaNativeTray
         [DllImport("user32.dll")]
         private static extern int GetSystemMetrics(int nIndex);
 
+        [DllImport("user32.dll")]
+        private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetProcessDPIAware();
+
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
@@ -198,12 +208,13 @@ namespace OuaNativeTray
         private static string _logFile = "";
         private static List<string> _branches = new List<string>();
         private static bool _trayOnly = false;
-        private static Mutex _mutex;
         private static uint _hotkeyMods = 0;
         private static uint _hotkeyVk = 0;
+        private static long _lastShowTime = 0; // 防抖：左键单击可能同时收到 WM_LBUTTONUP + NIN_SELECT
 
         private const int SM_CXSMICON = 11;
         private const int SM_CYSMICON = 12;
+        private const int DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4;
 
         private static string DaemonPidFile { get { return Path.Combine(_storageDir, "daemon.pid"); } }
         private static string ConfigFile { get { return Path.Combine(_storageDir, "config.json"); } }
@@ -213,75 +224,92 @@ namespace OuaNativeTray
         {
             try
             {
+                // DPI 感知（manifest 双保险：运行时强制 PerMonitorV2）
+                EnableDpiAwareness();
+
                 ParseArgs(args);
 
                 bool createdNew;
-                _mutex = new Mutex(true, "Global\\OUA_HotkeyHelper", out createdNew);
+                var mutex = new Mutex(true, "Global\\OUA_HotkeyHelper", out createdNew);
                 if (!createdNew) return; // 已有实例
+                try
+                {
+                    // 注册窗口类
+                    _wndProc = WndProc;
+                    var wc = new WNDCLASS
+                    {
+                        lpfnWndProc = _wndProc,
+                        hInstance = GetModuleHandle(null),
+                        lpszClassName = "OUA_TrayHelperWin",
+                        hCursor = IntPtr.Zero,
+                        hbrBackground = IntPtr.Zero
+                    };
+                    RegisterClassW(ref wc); // 类可能已存在(同二进制)不视为失败
 
-                // 注册窗口类
-                _wndProc = WndProc;
-                var wc = new WNDCLASS
-                {
-                    lpfnWndProc = _wndProc,
-                    hInstance = GetModuleHandle(null),
-                    lpszClassName = "OUA_TrayHelperWin",
-                    hCursor = IntPtr.Zero,
-                    hbrBackground = IntPtr.Zero
-                };
-                if (RegisterClassW(ref wc) == 0)
-                {
-                    Log("注册窗口类失败: " + Marshal.GetLastWin32Error());
-                    return;
+                    // 创建隐藏窗口并初始化（ShowWindow(SW_HIDE) 确保窗口可被 SetForegroundWindow 用于弹出菜单）
+                    _hwnd = CreateWindowEx(0, "OUA_TrayHelperWin", "OUA Helper", WS_POPUP,
+                        0, 0, 0, 0, IntPtr.Zero, IntPtr.Zero, GetModuleHandle(null), IntPtr.Zero);
+                    if (_hwnd == IntPtr.Zero)
+                    {
+                        Log("创建窗口失败: " + Marshal.GetLastWin32Error());
+                        return;
+                    }
+                    ShowWindow(_hwnd, SW_HIDE);
+
+                    // 添加托盘图标（先删除同窗口同ID的旧图标，防止路由到残留窗口）
+                    if (!AddTrayIcon())
+                    {
+                        Log("添加托盘图标失败");
+                        return;
+                    }
+
+                    // 注册全局热键
+                    if (!_trayOnly && _hotkeyVk != 0)
+                    {
+                        bool ok = RegisterHotKey(_hwnd, HOTKEY_ID, _hotkeyMods | MOD_NOREPEAT, _hotkeyVk);
+                        Log("注册热键 => " + (ok ? "成功" : "失败(可能被占用)"));
+                    }
+                    else
+                    {
+                        Log("未注册热键 (trayOnly=" + _trayOnly + ")");
+                    }
+
+                    Log("托盘助手就绪");
+
+                    // 消息循环
+                    MSG msg;
+                    while (GetMessage(out msg, IntPtr.Zero, 0, 0))
+                    {
+                        TranslateMessage(ref msg);
+                        DispatchMessage(ref msg);
+                    }
+
+                    // 清理
+                    Shell_NotifyIcon(NIM_DELETE, ref _nid);
+                    UnregisterHotKey(_hwnd, HOTKEY_ID);
+                    DestroyWindow(_hwnd);
                 }
-
-                // 创建隐藏窗口
-                _hwnd = CreateWindowEx(0, "OUA_TrayHelperWin", "OUA Helper", WS_POPUP,
-                    0, 0, 0, 0, IntPtr.Zero, IntPtr.Zero, GetModuleHandle(null), IntPtr.Zero);
-                if (_hwnd == IntPtr.Zero)
+                finally
                 {
-                    Log("创建窗口失败: " + Marshal.GetLastWin32Error());
-                    return;
+                    mutex.ReleaseMutex();
                 }
-
-                // 添加托盘图标
-                if (!AddTrayIcon())
-                {
-                    Log("添加托盘图标失败");
-                    return;
-                }
-
-                // 注册全局热键
-                if (!_trayOnly && _hotkeyVk != 0)
-                {
-                    bool ok = RegisterHotKey(_hwnd, HOTKEY_ID, _hotkeyMods | MOD_NOREPEAT, _hotkeyVk);
-                    Log("注册热键 => " + (ok ? "成功" : "失败(可能被占用)"));
-                }
-                else
-                {
-                    Log("未注册热键 (trayOnly=" + _trayOnly + ")");
-                }
-
-                Log("托盘助手就绪");
-
-                // 消息循环
-                MSG msg;
-                while (GetMessage(out msg, IntPtr.Zero, 0, 0))
-                {
-                    TranslateMessage(ref msg);
-                    DispatchMessage(ref msg);
-                }
-
-                // 清理
-                Shell_NotifyIcon(NIM_DELETE, ref _nid);
-                UnregisterHotKey(_hwnd, HOTKEY_ID);
-                DestroyWindow(_hwnd);
-                _mutex.ReleaseMutex();
             }
             catch (Exception ex)
             {
                 try { Log("致命错误: " + ex); } catch { }
             }
+        }
+
+        private static void EnableDpiAwareness()
+        {
+            try
+            {
+                if (!SetProcessDpiAwarenessContext((IntPtr)DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))
+                {
+                    SetProcessDPIAware();
+                }
+            }
+            catch { SetProcessDPIAware(); }
         }
 
         private static IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
@@ -296,14 +324,17 @@ namespace OuaNativeTray
                 }
                 if (msg == TRAY_MSG)
                 {
-                    uint action = (uint)lParam.ToInt64();
-                    if (action == WM_LBUTTONUP || action == NIN_SELECT ||
-                        action == WM_LBUTTONDBLCLK || action == NIN_DOUBLE)
+                    uint action = (uint)(lParam.ToInt64() & 0xFFFF);
+                    Log("托盘消息 lParam=0x" + action.ToString("X4") + " (" + action + ")");
+                    if (action == NIN_SELECT || action == WM_LBUTTONUP)
                     {
-                        Log("托盘左键/双击触发");
+                        ShowMainWindowDebounced();
+                    }
+                    else if (action == NIN_DOUBLE)
+                    {
                         ShowMainWindow();
                     }
-                    else if (action == WM_RBUTTONUP || action == WM_CONTEXTMENU)
+                    else if (action == WM_RBUTTONUP || action == 0x007B /* WM_CONTEXTMENU */)
                     {
                         ShowContextMenu();
                     }
@@ -325,6 +356,16 @@ namespace OuaNativeTray
         // ===== 托盘 =====
         private static bool AddTrayIcon()
         {
+            string iconPath = ParseArg("--icon");
+
+            // 先清除残留图标（同窗口+同ID），确保回调路由到当前窗口
+            _nid = new NOTIFYICONDATA();
+            _nid.cbSize = Marshal.SizeOf(typeof(NOTIFYICONDATA));
+            _nid.hWnd = _hwnd;
+            _nid.uID = 1;
+            Shell_NotifyIcon(NIM_DELETE, ref _nid);
+
+            // 重新初始化并添加
             _nid = new NOTIFYICONDATA();
             _nid.cbSize = Marshal.SizeOf(typeof(NOTIFYICONDATA));
             _nid.hWnd = _hwnd;
@@ -333,14 +374,6 @@ namespace OuaNativeTray
             _nid.uCallbackMessage = TRAY_MSG;
             _nid.szTip = "OOOInterface 易升";
 
-            // 加载托盘图标
-            string iconPath = "";
-            for (int i = 0; i < Environment.GetCommandLineArgs().Length; i++)
-            {
-                if (Environment.GetCommandLineArgs()[i] == "--icon" && i + 1 < Environment.GetCommandLineArgs().Length)
-                    iconPath = Environment.GetCommandLineArgs()[i + 1];
-            }
-            if (string.IsNullOrEmpty(iconPath)) iconPath = ParseArg("--icon");
             IntPtr hIcon = IntPtr.Zero;
             if (!string.IsNullOrEmpty(iconPath) && File.Exists(iconPath))
             {
@@ -349,24 +382,25 @@ namespace OuaNativeTray
             }
             if (hIcon == IntPtr.Zero)
             {
-                // 兜底：系统图标
                 hIcon = LoadIcon(IntPtr.Zero, "IDI_APPLICATION");
             }
             _nid.hIcon = hIcon;
 
-            if (!Shell_NotifyIcon(NIM_ADD, ref _nid)) return false;
+            if (!Shell_NotifyIcon(NIM_ADD, ref _nid))
+            {
+                Log("NIM_ADD 失败: " + Marshal.GetLastWin32Error());
+                return false;
+            }
 
             // 使用 v4 通知行为（NIN_SELECT / NIN_DOUBLE）
             var verData = _nid;
             verData.uFlags = 0;
             verData.uVersion = NOTIFYICON_VERSION_4;
             Shell_NotifyIcon(NIM_SETVERSION, ref verData);
-            Log("托盘图标已添加");
+
+            Log("托盘图标已添加 (callback=0x" + TRAY_MSG.ToString("X4") + ")");
             return true;
         }
-
-        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-        private static extern IntPtr LoadIcon(IntPtr hInst, string lpIconName);
 
         // ===== 菜单 =====
         private static void ShowContextMenu()
@@ -374,12 +408,14 @@ namespace OuaNativeTray
             try
             {
                 IntPtr menu = CreatePopupMenu();
-                if (menu == IntPtr.Zero) return;
+                if (menu == IntPtr.Zero)
+                {
+                    Log("CreatePopupMenu 失败");
+                    return;
+                }
 
-                // 显示窗口
                 AppendMenu(menu, MF_STRING, (IntPtr)ID_SHOW, "显示窗口");
 
-                // 切换分支子菜单（当前分支勾选）
                 if (_branches.Count > 0)
                 {
                     string current = GetCurrentBranch();
@@ -393,19 +429,19 @@ namespace OuaNativeTray
                     AppendMenu(menu, MF_STRING | MF_POPUP, branchMenu, "切换分支");
                 }
 
-                // 分隔线 + 退出
                 AppendMenu(menu, MF_SEPARATOR, IntPtr.Zero, null);
                 AppendMenu(menu, MF_STRING, (IntPtr)ID_EXIT, "退出");
 
-                // 显示菜单
                 POINT pt;
                 GetCursorPos(out pt);
+                Log("弹出菜单 at (" + pt.x + "," + pt.y + ")");
                 SetForegroundWindow(_hwnd);
                 uint cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
                     pt.x, pt.y, 0, _hwnd, IntPtr.Zero);
                 DestroyMenu(menu);
+                // 标准模式：菜单关闭后补发 WM_NULL，确保菜单正确消失
+                PostMessage(_hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero);
 
-                // 分发命令
                 if (cmd == ID_SHOW)
                 {
                     Log("菜单: 显示窗口");
@@ -422,6 +458,10 @@ namespace OuaNativeTray
                     Log("菜单: 切换分支 " + branch);
                     SwitchBranch(branch);
                 }
+                else
+                {
+                    Log("菜单返回 0（取消或未选择）");
+                }
             }
             catch (Exception ex)
             {
@@ -430,8 +470,17 @@ namespace OuaNativeTray
         }
 
         // ===== 动作 =====
+        private static void ShowMainWindowDebounced()
+        {
+            long now = Environment.TickCount;
+            if (now - _lastShowTime < 300) return; // 左键单击可能同时收到 WM_LBUTTONUP + NIN_SELECT
+            _lastShowTime = now;
+            ShowMainWindow();
+        }
+
         private static void ShowMainWindow()
         {
+            Log("托盘动作: 显示窗口");
             LaunchMain(null);
         }
 
@@ -482,7 +531,6 @@ namespace OuaNativeTray
             int daemonPid = ReadDaemonPid();
             if (daemonPid > 0 && IsProcessAlive(daemonPid))
             {
-                // 守护模式：仅结束守护进程本体（不连带杀自己）
                 try
                 {
                     Process.Start(new ProcessStartInfo
@@ -504,9 +552,8 @@ namespace OuaNativeTray
             }
             else if (IsMainRunning())
             {
-                // 窗口模式：通知主程序正常退出
                 LaunchMain("--quit");
-                Thread.Sleep(5000); // 主程序 before-quit 会结束本进程；兜底 5 秒后自退
+                Thread.Sleep(5000);
                 PostQuitMessage(0);
             }
             else
