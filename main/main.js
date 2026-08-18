@@ -8,6 +8,9 @@ const fs = require('fs');
 // 标记开发/打包环境，供 preload 与渲染进程使用（开发环境才启用诊断等调试功能）
 process.env.OUA_DEV = app.isPackaged ? '0' : '1';
 
+// 暴露 global.gc()，轻量模式关闭窗口后主动回收主进程 V8 堆内存
+app.commandLine.appendSwitch('js-flags', '--expose-gc');
+
 const logger = require('./utils/logger');
 const pathUtils = require('./utils/pathUtils');
 const configService = require('./services/configService');
@@ -186,6 +189,19 @@ function createWindow(silentMode = false) {
           mainWindow.webContents.destroy();
         }
         mainWindow.destroy();
+        // 诊断：destroy 后延迟输出每个进程的类型与内存，用于确认渲染进程是否释放
+        setTimeout(() => {
+          // 主动触发主进程 V8 垃圾回收，回收已销毁对象占用的堆内存
+          if (typeof global.gc === 'function') {
+            global.gc();
+          }
+          const metrics = app.getAppMetrics().map((m) => {
+            const mb = Math.round((m.memory.workingSetSize || 0) / 1024 / 1024);
+            return m.type + '(' + m.pid + ')=' + mb + 'MB';
+          }).join(' ');
+          logger.info('轻量模式：关闭后进程=' + metrics);
+          logger.info('轻量模式：主进程RSS=' + Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB');
+        }, 3000);
       } else if (startupConfig.minimizeToTray && !isQuitting) {
         event.preventDefault();
         mainWindow.hide();
