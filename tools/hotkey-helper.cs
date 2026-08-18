@@ -335,10 +335,11 @@ namespace OuaNativeTray
                     {
                         ShowMainWindow();
                     }
-                    else if (action == WM_RBUTTONUP || action == 0x007B /* WM_CONTEXTMENU */)
+                    else if (action == WM_RBUTTONUP)
                     {
                         ShowContextMenu();
                     }
+                    // WM_CONTEXTMENU (0x007B) 不再处理：与 WM_RBUTTONUP 双触发会导致菜单弹两次
                     return IntPtr.Zero;
                 }
                 if (msg == WM_DESTROY)

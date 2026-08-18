@@ -1172,6 +1172,14 @@ app.whenReady().then(() => {
   logger.initLogger(pathUtils.getLogDir());
   logger.info('应用启动');
 
+  // --quit 实例（托盘退出时由 helper spawn）：无论是否抢到单实例锁，都直接退出，
+  // 绝不完整启动应用或拉起托盘助手，避免与正在退出的旧实例产生"退出两次"竞态
+  if (process.argv.includes('--quit')) {
+    logger.info('--quit 实例：直接退出，不启动应用');
+    app.exit(0);
+    return;
+  }
+
   configService.initConfig();
 
   const savedBranch = configService.getBranch();
