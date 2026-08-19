@@ -87,7 +87,8 @@ function getDefaultConfig() {
       enabled: false,
       port: 8964,
       allowExternal: false,
-      token: null
+      token: null,
+      interfaceAccess: false  // OOOInterface 访问：允许 OOOInterface 关于页调用更新接口
     },
     selfUpdate: null,
     pendingUpdate: null  // { path: string } 已下载待安装的更新包路径
@@ -100,7 +101,11 @@ function getDefaultConfig() {
 function normalizeConfig() {
   let changed = false;
   if (!configData.accessibility) {
-    configData.accessibility = { enabled: false, port: 8964, allowExternal: false, token: null };
+    configData.accessibility = { enabled: false, port: 8964, allowExternal: false, token: null, interfaceAccess: false };
+    changed = true;
+  }
+  if (configData.accessibility.interfaceAccess === undefined) {
+    configData.accessibility.interfaceAccess = false;
     changed = true;
   }
   if (configData.accessibility.enabled && !configData.accessibility.token) {
@@ -300,7 +305,8 @@ function getAccessibilityConfig() {
     enabled: false,
     port: 8964,
     allowExternal: false,
-    token: null
+    token: null,
+    interfaceAccess: false
   };
 }
 
@@ -315,7 +321,8 @@ function setAccessibilityConfig(accessibilityConfig) {
     enabled: accessibilityConfig.enabled ?? (configData.accessibility?.enabled ?? false),
     port: accessibilityConfig.port ?? (configData.accessibility?.port ?? 8964),
     allowExternal: accessibilityConfig.allowExternal ?? (configData.accessibility?.allowExternal ?? false),
-    token: accessibilityConfig.token ?? (configData.accessibility?.token ?? null)
+    token: accessibilityConfig.token ?? (configData.accessibility?.token ?? null),
+    interfaceAccess: accessibilityConfig.interfaceAccess ?? (configData.accessibility?.interfaceAccess ?? false)
   };
   // 启用时若尚无令牌则自动生成，保证局域网远程访问有凭据可用
   if (configData.accessibility.enabled && !configData.accessibility.token) {
@@ -332,7 +339,7 @@ function setAccessibilityConfig(accessibilityConfig) {
 function regenerateAccessibilityToken() {
   if (!configData) configData = getDefaultConfig();
   if (!configData.accessibility) {
-    configData.accessibility = { enabled: false, port: 8964, allowExternal: false, token: null };
+    configData.accessibility = { enabled: false, port: 8964, allowExternal: false, token: null, interfaceAccess: false };
   }
   configData.accessibility.token = generateAccessibilityToken();
   saveConfig();

@@ -96,6 +96,92 @@ function needWindowError() {
   return { ok: false, needWindow: true, error: '此操作需要在主界面中执行，请先打开主界面' };
 }
 
+/**
+ * OOOInterface 访问是否已启用（可访问性开关 + OOOInterface 访问开关同时打开）
+ */
+function isInterfaceAccessEnabled() {
+  const cfg = configService.getAccessibilityConfig();
+  return !!(cfg && cfg.enabled && cfg.interfaceAccess);
+}
+
+/**
+ * 分支显示名映射：LTS → LTS，main → Release，test → Beta
+ * @param {string} branch - 分支名称
+ * @returns {string} 显示名
+ */
+function getBranchLabel(branch) {
+  switch (branch) {
+    case 'LTS':
+      return 'LTS';
+    case 'main':
+      return 'Release';
+    case 'test':
+      return 'Beta';
+    default:
+      return branch || '未知';
+  }
+}
+
+/**
+ * OOOInterface 关于页「检查更新」：一次性返回弹窗所需的全部数据
+ * 安装目录 / 版本分支 / 本地版本 / 云端版本 / 是否有新版本
+ */
+async function handleInterfaceCheckUpdate(res) {
+  const installDir = configService.getInstallDir();
+  const branch = configService.getBranch();
+  const data = {
+    installDir: installDir || null,
+    branch,
+    branchLabel: getBranchLabel(branch),
+    localVersion: null,
+    remoteVersion: null,
+    updateTime: new Date().toLocaleString('zh-CN', { hour12: false }),
+    dataSource: 'OOOInterface 易升',
+    hasUpdate: false,
+    localMode: branch === 'local'
+  };
+
+  if (installDir) {
+    data.localVersion = versionService.getLocalVersion(installDir);
+  }
+
+  // 本地导入模式无法从云端更新，无需查远程版本
+  if (installDir && branch !== 'local') {
+    try {
+      data.remoteVersion = await versionService.getRemoteVersion(branch);
+    } catch (error) {
+      logger.error(`[OOOInterface 访问] 获取远程版本失败: ${error.message}`);
+    }
+    if (data.localVersion && data.remoteVersion) {
+      const cmp = versionService.compareLocalWithRemote(data.localVersion, data.remoteVersion);
+      data.hasUpdate = cmp < 0;
+      data.isNewer = cmp > 0;
+    }
+  }
+
+  writeJson(res, 200, { ok: true, data });
+}
+
+/**
+ * OOOInterface 关于页「更新」：调用后端从云端拉取并覆盖安装目录
+ * 进度通过 SSE /api/events 的 update-progress 通道广播
+ */
+async function handleInterfaceUpdate(res) {
+  const installDir = configService.getInstallDir();
+  if (!installDir) {
+    throw new Error('升级工具配置错误，请尝试重新配置升级工具或打开外部访问接口。');
+  }
+  const branch = configService.getBranch();
+  if (branch === 'local') {
+    throw new Error('升级工具配置错误，请尝试重新配置升级工具或打开外部访问接口。');
+  }
+
+  logger.info(`[OOOInterface 访问] 开始从云端更新: ${installDir} (分支: ${branch})`);
+  await updateService.updateApp(installDir, branch, makeProgressBroadcaster('update-progress'));
+  logger.info('[OOOInterface 访问] 更新完成');
+  return true;
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.htm': 'text/html; charset=utf-8',
@@ -153,7 +239,8 @@ function writeJson(res, status, obj) {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Private-Network': 'true'
   });
   res.end(body);
 }
@@ -234,7 +321,7 @@ function buildHandlers() {
       const zipPath = args[0];
       const installDir = configService.getInstallDir();
       if (!installDir) {
-        throw new Error('未设置安装目录，请先在设置中先选择安装目录');
+        throw new Error('升级工具配置错误，请尝试重新配置升级工具或打开外部访问接口。');
       }
       logger.info(`[可访问性] 开始本地导入: ${zipPath} -> ${installDir}`);
       return zipService.extractAndValidateZip(zipPath, installDir, makeProgressBroadcaster('update-progress'));
@@ -604,7 +691,8 @@ function handleRequest(req, res) {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Private-Network': 'true'
     });
     res.end();
     return;
@@ -635,6 +723,33 @@ function handleRequest(req, res) {
 
     if (pathname === '/api/upload' && req.method === 'POST') {
       handleUpload(req, res, urlObj);
+      return;
+    }
+
+    // ---- OOOInterface 关于页专用接口（需开启「OOOInterface 访问」）----
+    if (pathname === '/api/interface/check-update') {
+      if (!isInterfaceAccessEnabled()) {
+        sendError(res, 403, '连接失败，请尝试启动升级工具或打开外部访问接口。');
+        return;
+      }
+      handleInterfaceCheckUpdate(res).catch((error) => {
+        logger.error(`[OOOInterface 访问] 检查更新失败: ${error.message}`);
+        sendError(res, 500, error.message || String(error));
+      });
+      return;
+    }
+
+    if (pathname === '/api/interface/update' && req.method === 'POST') {
+      if (!isInterfaceAccessEnabled()) {
+        sendError(res, 403, '连接失败，请尝试启动升级工具或打开外部访问接口。');
+        return;
+      }
+      handleInterfaceUpdate(res)
+        .then(() => writeJson(res, 200, { ok: true, data: true }))
+        .catch((error) => {
+          logger.error(`[OOOInterface 访问] 更新失败: ${error.message}`);
+          sendError(res, 500, error.message || String(error));
+        });
       return;
     }
 

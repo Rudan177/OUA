@@ -291,11 +291,13 @@ window.SettingsPage = {
       const configBlock = panel.querySelector('#KeFangWen-XinXi-PeiZhi-RongQi');
       const portInput = panel.querySelector('#KeFangWen-DuanKou');
       const externalSwitch = panel.querySelector('#KeFangWen-WaiBu-KaiGuan');
+      const interfaceSwitch = panel.querySelector('#KeFangWen-Interface-KaiGuan');
       const yiShiYongBlock = panel.querySelector('#KeFangWen-YiShiYong-TiShi');
 
       if (mainSwitch) mainSwitch.checked = accessibilityConfig.enabled || false;
       if (portInput) portInput.value = accessibilityConfig.port || 8964;
       if (externalSwitch) externalSwitch.checked = accessibilityConfig.allowExternal || false;
+      if (interfaceSwitch) interfaceSwitch.checked = accessibilityConfig.interfaceAccess || false;
 
       // 填充访问地址与令牌
       this._tianChongKeFangWenXingURLAndToken(panel, accessibilityConfig);
@@ -473,12 +475,14 @@ window.SettingsPage = {
         const mainSwitch = panel.querySelector('#KeFangWen-XinXi-KaiGuan');
         const portInput2 = panel.querySelector('#KeFangWen-DuanKou');
         const externalSwitch = panel.querySelector('#KeFangWen-WaiBu-KaiGuan');
+        const interfaceSwitch = panel.querySelector('#KeFangWen-Interface-KaiGuan');
         const tokenInput = panel.querySelector('#KeFangWen-Token');
 
         const accessibilityConfig = {
           enabled: mainSwitch ? mainSwitch.checked : false,
           port: portInput2 ? parseInt(portInput2.value, 10) || 8964 : 8964,
-          allowExternal: externalSwitch ? externalSwitch.checked : false
+          allowExternal: externalSwitch ? externalSwitch.checked : false,
+          interfaceAccess: interfaceSwitch ? interfaceSwitch.checked : false
         };
         if (tokenInput && tokenInput.value.trim()) {
           accessibilityConfig.token = tokenInput.value.trim();
