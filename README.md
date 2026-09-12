@@ -6,10 +6,10 @@ OOOInterface 更新助手（Electron）。
 
 <!-- OUA-RELEASES-BEGIN -->
 
-- Windows 免安装 https://github.com/Rudan177/OUA/releases/download/0.9.4/Win-OOOInterface.0.9.4.exe
-- Windows 安装 https://github.com/Rudan177/OUA/releases/download/0.9.4/Win-OOOInterface.Setup.0.9.4.exe
-- Linux 免安装 https://github.com/Rudan177/OUA/releases/download/0.9.4/Linux-OOOInterface.-0.9.4.AppImage
-- Linux 安装 https://github.com/Rudan177/OUA/releases/download/0.9.4/Linux-oua_0.9.4_amd64.deb
+- Windows 免安装 https://github.com/Rudan177/OUA/releases/download/0.9.6/Win-OOOInterface.0.9.6.exe
+- Windows 安装 https://github.com/Rudan177/OUA/releases/download/0.9.6/Win-OOOInterface.Setup.0.9.4.exe
+- Linux 免安装 https://github.com/Rudan177/OUA/releases/download/0.9.6/Linux-OOOInterface.-0.9.4.AppImage
+- Linux 安装 https://github.com/Rudan177/OUA/releases/download/0.9.6/Linux-oua_0.9.4_amd64.deb
 
 <!-- OUA-RELEASES-END -->
 
