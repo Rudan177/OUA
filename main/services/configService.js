@@ -65,6 +65,7 @@ function getDefaultConfig() {
   return {
     installDir: null,
     branch: appConfig.git.defaultBranch,
+    cloudBranch: appConfig.git.defaultBranch,  // 本地模式下记忆的上一个云端分支，供切回 Cloud 使用
     isFirstRun: true,
     theme: 'system',
     proxy: {
@@ -106,6 +107,13 @@ function normalizeConfig() {
   }
   if (configData.accessibility.interfaceAccess === undefined) {
     configData.accessibility.interfaceAccess = false;
+    changed = true;
+  }
+  // 补齐云端分支记忆：优先沿用当前分支，本地模式下回退到默认分支
+  if (!configData.cloudBranch || typeof configData.cloudBranch !== 'string') {
+    configData.cloudBranch = configData.branch && configData.branch !== 'local'
+      ? configData.branch
+      : appConfig.git.defaultBranch;
     changed = true;
   }
   if (configData.accessibility.enabled && !configData.accessibility.token) {
@@ -157,6 +165,10 @@ function getInstallDir() {
  */
 function setBranch(branch) {
   configData.branch = branch;
+  // 云端分支会被记忆，便于本地模式切回 Cloud 时恢复
+  if (branch && branch !== 'local') {
+    configData.cloudBranch = branch;
+  }
   saveConfig();
 }
 
@@ -166,6 +178,15 @@ function setBranch(branch) {
  */
 function getBranch() {
   return configData.branch || appConfig.git.defaultBranch;
+}
+
+/**
+ * 获取记忆的云端分支
+ * @returns {string} 云端分支名称
+ */
+function getCloudBranch() {
+  const branch = configData && configData.cloudBranch;
+  return branch && branch !== 'local' ? branch : appConfig.git.defaultBranch;
 }
 
 /**
@@ -355,6 +376,7 @@ module.exports = {
   getInstallDir,
   setBranch,
   getBranch,
+  getCloudBranch,
   setProxyConfig,
   getProxyConfig,
   setStartupConfig,

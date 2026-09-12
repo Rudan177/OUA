@@ -30,6 +30,7 @@
   ],
   "win": {
     "icon": "renderer/assets/icons/icon.ico",
+    "executableName": "oua",
     "target": [
       {
         "target": "nsis",
@@ -50,7 +51,11 @@
     "perMachine": true,
     "allowToChangeInstallationDirectory": true,
     "shortcutName": "OOOInterface易升", 
-    "deleteAppDataOnUninstall": false
+    "deleteAppDataOnUninstall": false,
+    "include": "installer/installer.nsh"
+  },
+  "portable": {
+    "artifactName": "oua-portable-${version}.${ext}"
   },
   "linux": {
     "icon": "build/icons",

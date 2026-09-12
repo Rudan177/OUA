@@ -273,7 +273,8 @@ async function main() {
   // 拉起托盘助手
   startHelper();
 
-  // 监听配置文件变更（托盘助手直接改写 config.json），重载内存配置
+  // 监听配置文件变更（托盘助手/CLI 直接改写 config.json），重载内存配置
+  // 可访问性开关/端口/监听范围变化时重启 HTTP 服务，使 CLI 修改即时生效
   try {
     const configPath = pathUtils.getConfigFilePath();
     if (fs.existsSync(configPath)) {
@@ -281,6 +282,19 @@ async function main() {
         try {
           configService.loadConfig();
           logger.info('配置文件已变更，守护进程重载配置');
+
+          const cfg = configService.getAccessibilityConfig();
+          const status = httpServerService.huoQuZhuangTai();
+          const wantHost = cfg.allowExternal ? '0.0.0.0' : '127.0.0.1';
+          const needRestart = cfg.enabled !== !!status.enabled ||
+            (cfg.enabled && (status.port !== cfg.port || status.host !== wantHost));
+          if (needRestart) {
+            if (cfg.enabled) {
+              httpServerService.qiDong(cfg);
+            } else {
+              httpServerService.guanBi();
+            }
+          }
         } catch (e) {
           logger.warn(`守护进程配置重载失败: ${e.message}`);
         }

@@ -22,6 +22,8 @@ const { registerFileIPC } = require('./ipc/fileIPC');
 const { registerUpdateIPC } = require('./ipc/updateIPC');
 const { registerDialogIPC } = require('./ipc/dialogIPC');
 
+const cli = require('./cli');
+
 let mainWindow;
 let tray = null;
 let isRestarting = false;
@@ -85,8 +87,10 @@ function relaunchApp() {
   });
 }
 
-// 单实例锁 - 防止多开
-const gotTheLock = app.requestSingleInstanceLock();
+const isCliInvocation = cli.isCliInvocation(process.argv);
+
+// 单实例锁 - 防止多开（CLI 调用不参与，避免与正在运行的桌面实例互相抢占）
+const gotTheLock = isCliInvocation ? true : app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
   app.quit();
@@ -153,6 +157,46 @@ function qingLiFenZhiJinDu() {
 }
 
 /**
+ * 外部进程（托盘助手 / CLI）改写 config.json 后，按需重新应用运行时设置：
+ * - 可访问性：启停状态、端口或监听范围变化时重启 HTTP 服务
+ * - 开机自启：重新注册登录项
+ * - 全局热键：非轻量模式下重新注册
+ */
+function yingYongWaiBuPeiZhiBianGeng() {
+  try {
+    const cfg = configService.getAccessibilityConfig();
+    const status = httpServerService.huoQuZhuangTai();
+    const wantHost = cfg.allowExternal ? '0.0.0.0' : '127.0.0.1';
+    const needRestart = cfg.enabled !== !!status.enabled ||
+      (cfg.enabled && (status.port !== cfg.port || status.host !== wantHost));
+    if (needRestart) {
+      if (cfg.enabled) {
+        httpServerService.qiDong(cfg);
+      } else {
+        httpServerService.guanBi();
+      }
+    }
+  } catch (error) {
+    logger.warn(`重新应用可访问性配置失败: ${error.message}`);
+  }
+
+  try {
+    yingYongKaiJiZiQi(configService.getStartupConfig());
+  } catch (error) {
+    logger.warn(`重新应用开机自启失败: ${error.message}`);
+  }
+
+  try {
+    const lightweight = configService.getStartupConfig().lightweightMode && process.platform === 'win32';
+    if (!lightweight) {
+      zhuCeQuanJuReJian();
+    }
+  } catch (error) {
+    logger.warn(`重新注册热键失败: ${error.message}`);
+  }
+}
+
+/**
  * 监听配置文件变更（托盘助手等外部进程可能直接改写 config.json）
  * 变更时重载内存配置并广播 config-updated 给渲染进程刷新设置 UI
  */
@@ -174,6 +218,9 @@ function jianTingPeiZhiBianGeng() {
       } catch (e) {
         logger.warn(`配置重载失败: ${e.message}`);
       }
+
+      // 按需重新应用需要即时生效的设置
+      yingYongWaiBuPeiZhiBianGeng();
 
       logger.info('配置文件已变更，重载并广播刷新');
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1168,8 +1215,27 @@ async function checkAndAutoUpdate() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   logger.initLogger(pathUtils.getLogDir());
+
+  // CLI 模式：仅加载配置并执行命令，按退出码结束，不创建窗口/托盘/HTTP 服务
+  if (isCliInvocation) {
+    // 先关闭控制台日志，避免配置加载等日志污染命令输出（文件日志照常写入）
+    logger.setConsoleEnabled(false);
+    let code = 1;
+    try {
+      configService.initConfig();
+      code = await cli.run(process.argv);
+    } catch (error) {
+      logger.error(`CLI 执行异常: ${error.stack || error.message}`);
+      process.stdout.write('Failed: ' + (error.message || String(error)) + '\n');
+    } finally {
+      // 等 stdout 冲刷完成再退出，避免管道场景下输出被截断
+      process.stdout.write('', () => app.exit(code || 0));
+    }
+    return;
+  }
+
   logger.info('应用启动');
 
   // --quit 实例（托盘退出时由 helper spawn）：无论是否抢到单实例锁，都直接退出，

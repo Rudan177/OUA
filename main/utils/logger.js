@@ -6,6 +6,8 @@ const fs = require('fs');
 
 let logFilePath = null;
 let logEnabled = true;
+// 控制台输出开关：CLI 模式下关闭，避免日志污染命令结果（日志仍写入文件）
+let consoleEnabled = true;
 
 /**
  * 初始化日志器
@@ -31,7 +33,9 @@ function log(level, message) {
   const timestamp = new Date().toISOString();
   const logEntry = `[${timestamp}] [${level}] ${message}`;
 
-  console.log(logEntry);
+  if (consoleEnabled) {
+    console.log(logEntry);
+  }
 
   if (logFilePath) {
     try {
@@ -82,11 +86,20 @@ function setEnabled(enabled) {
   logEnabled = enabled;
 }
 
+/**
+ * 设置控制台输出开关（CLI 模式下关闭，仅保留文件日志）
+ * @param {boolean} enabled
+ */
+function setConsoleEnabled(enabled) {
+  consoleEnabled = enabled;
+}
+
 module.exports = {
   initLogger,
   info,
   warn,
   error,
   debug,
-  setEnabled
+  setEnabled,
+  setConsoleEnabled
 };

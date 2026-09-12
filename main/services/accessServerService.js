@@ -46,6 +46,7 @@ const notificationService = require('./notificationService');
 const appService = require('./appService');
 const zipService = require('./zipService');
 const pathUtils = require('../utils/pathUtils');
+const branchUtils = require('../utils/branchUtils');
 const appConfigModule = require('../config/appConfig');
 const logger = require('../utils/logger');
 
@@ -105,24 +106,6 @@ function isInterfaceAccessEnabled() {
 }
 
 /**
- * 分支显示名映射：LTS → LTS，main → Release，test → Beta
- * @param {string} branch - 分支名称
- * @returns {string} 显示名
- */
-function getBranchLabel(branch) {
-  switch (branch) {
-    case 'LTS':
-      return 'LTS';
-    case 'main':
-      return 'Release';
-    case 'test':
-      return 'Beta';
-    default:
-      return branch || '未知';
-  }
-}
-
-/**
  * OOOInterface 关于页「检查更新」：一次性返回弹窗所需的全部数据
  * 安装目录 / 版本分支 / 本地版本 / 云端版本 / 是否有新版本
  */
@@ -132,7 +115,7 @@ async function handleInterfaceCheckUpdate(res) {
   const data = {
     installDir: installDir || null,
     branch,
-    branchLabel: getBranchLabel(branch),
+    branchLabel: branchUtils.getBranchLabel(branch),
     localVersion: null,
     remoteVersion: null,
     updateTime: new Date().toLocaleString('zh-CN', { hour12: false }),
